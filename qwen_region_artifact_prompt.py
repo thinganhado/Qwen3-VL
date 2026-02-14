@@ -19,6 +19,7 @@ DEFAULT_P1_ROOT = "/scratch3/che489/Ha/interspeech/localization/Ms_region_output
 DEFAULT_P2_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_top3"
 DEFAULT_P3_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_real"
 DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/localization/qwen3_vlm"
+DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking"
 
 DEFAULT_USER_TEMPLATE = (
     "This region corresponds to {time} section, {frequency} frequency band, and {phoneme}.\n"
@@ -303,7 +304,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Run local HF Qwen-VL prompt for spectrogram artifact analysis."
     )
-    parser.add_argument("--model-id", required=True, help="HF model id or local model path.")
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path. Default: local Qwen3-VL-30B-A3B-Thinking.")
 
     parser.add_argument("--p1", default=None, help="Optional single-item P1 path/URL.")
     parser.add_argument("--p2", default=None, help="Optional single-item P2 path/URL.")
