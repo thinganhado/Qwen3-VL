@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import json
 import re
+from collections import defaultdict
 from pathlib import Path
 
 import torch
@@ -11,7 +13,12 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 THIS_DIR = Path(__file__).resolve().parent
 DEFAULT_SYSTEM_FILE = THIS_DIR / "prompts" / "region_forensics_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
+
 DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all.csv"
+DEFAULT_P1_ROOT = "/scratch3/che489/Ha/interspeech/localization/Ms_region_outputs"
+DEFAULT_P2_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_top3"
+DEFAULT_P3_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_real"
+DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/localization/qwen3_vlm"
 
 DEFAULT_USER_TEMPLATE = (
     "This region corresponds to {time} section, {frequency} frequency band, and {phoneme}.\n"
@@ -98,23 +105,16 @@ def _normalize_choice(field_name: str, value: str, mapping: dict, allowed_hint: 
     raise ValueError(f"Unsupported --{field_name} value: {value}. Allowed: {allowed_hint}")
 
 
-def _parse_sample_region_from_p2(p2_value: str):
-    p = Path(p2_value)
+def _parse_sample_region_from_filename(path_value: str):
+    p = Path(path_value)
     stem = p.stem
     m = re.match(r"^(?P<sample_id>.+)__r(?P<region_id>\d+)$", stem)
     if not m:
         raise ValueError(
-            "Unable to parse sample_id/region_id from --p2 filename. "
+            "Unable to parse sample_id/region_id from crop filename. "
             "Expected pattern: <sample_id>__r<region_id>.png"
         )
-
-    sample_id = m.group("sample_id")
-    region_id = int(m.group("region_id"))
-    method_raw = p.parent.name
-    method = _normalize_choice(
-        "crop-method", method_raw, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
-    )
-    return sample_id, region_id, method
+    return m.group("sample_id"), int(m.group("region_id"))
 
 
 def _lookup_region_metadata(csv_path: Path, sample_id: str, method: str, region_id: int):
@@ -150,24 +150,9 @@ def _lookup_region_metadata(csv_path: Path, sample_id: str, method: str, region_
     )
 
 
-def _resolve_metadata(args: argparse.Namespace):
-    csv_path = Path(args.meta_csv)
-
-    inferred_sample_id = args.sample_id
-    inferred_region_id = args.region_id
-    inferred_method = args.crop_method
-
-    if inferred_sample_id is None or inferred_region_id is None or inferred_method is None:
-        p2_sample_id, p2_region_id, p2_method = _parse_sample_region_from_p2(args.p2)
-        if inferred_sample_id is None:
-            inferred_sample_id = p2_sample_id
-        if inferred_region_id is None:
-            inferred_region_id = p2_region_id
-        if inferred_method is None:
-            inferred_method = p2_method
-
+def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, region_id: int):
     crop_method_value = _normalize_choice(
-        "crop-method", str(inferred_method), CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
+        "crop-method", str(method), CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
     )
 
     if args.time and args.frequency and args.phoneme:
@@ -176,10 +161,10 @@ def _resolve_metadata(args: argparse.Namespace):
         phoneme_raw = args.phoneme
     else:
         time_raw, freq_raw, phoneme_raw = _lookup_region_metadata(
-            csv_path=csv_path,
-            sample_id=str(inferred_sample_id),
+            csv_path=Path(args.meta_csv),
+            sample_id=sample_id,
             method=crop_method_value,
-            region_id=int(inferred_region_id),
+            region_id=region_id,
         )
 
     time_value = _normalize_choice("time", time_raw, TIME_MAP, "S, NS, speech, non_speech")
@@ -189,8 +174,8 @@ def _resolve_metadata(args: argparse.Namespace):
     phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "C, V, none")
 
     return {
-        "sample_id": str(inferred_sample_id),
-        "region_id": int(inferred_region_id),
+        "sample_id": sample_id,
+        "region_id": region_id,
         "crop_method": crop_method_value,
         "time": time_value,
         "frequency": frequency_value,
@@ -198,15 +183,94 @@ def _resolve_metadata(args: argparse.Namespace):
     }
 
 
-def build_messages(args: argparse.Namespace):
-    p1 = _normalize_image_ref(args.p1)
-    p2 = _normalize_image_ref(args.p2)
-    p3 = _normalize_image_ref(args.p3)
+def _discover_triplets(args: argparse.Namespace):
+    if args.p2 is not None:
+        if args.p1 is None or args.p3 is None:
+            sample_id, region_id = _parse_sample_region_from_filename(args.p2)
+            method = args.crop_method
+            if method is None:
+                method = Path(args.p2).parent.name
+            method = _normalize_choice("crop-method", method, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM")
+
+            p2_path = Path(args.p2)
+            p1_path = Path(args.p1) if args.p1 else Path(args.p1_root) / method.lower() / f"{sample_id}_{method.lower()}_img_edge_number.png"
+            p3_path = Path(args.p3) if args.p3 else Path(args.p3_root) / method.lower() / p2_path.name
+        else:
+            p1_path = Path(args.p1)
+            p2_path = Path(args.p2)
+            p3_path = Path(args.p3)
+            sample_id, region_id = _parse_sample_region_from_filename(str(p2_path))
+            method = args.crop_method or p2_path.parent.name
+            method = _normalize_choice("crop-method", method, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM")
+
+        if not p1_path.exists() or not p2_path.exists() or not p3_path.exists():
+            raise FileNotFoundError(
+                f"Missing one of p1/p2/p3: p1={p1_path} exists={p1_path.exists()}, "
+                f"p2={p2_path} exists={p2_path.exists()}, p3={p3_path} exists={p3_path.exists()}"
+            )
+
+        return [{
+            "p1": str(p1_path),
+            "p2": str(p2_path),
+            "p3": str(p3_path),
+            "sample_id": sample_id,
+            "region_id": region_id,
+            "crop_method": method,
+        }]
+
+    p2_root = Path(args.p2_root).expanduser().resolve()
+    p1_root = Path(args.p1_root).expanduser().resolve()
+    p3_root = Path(args.p3_root).expanduser().resolve()
+
+    if not p2_root.exists():
+        raise FileNotFoundError(f"--p2-root does not exist: {p2_root}")
+
+    triplets = []
+    for p2_path in sorted(p2_root.rglob("*__r*.png")):
+        try:
+            sample_id, region_id = _parse_sample_region_from_filename(str(p2_path))
+            method = _normalize_choice(
+                "crop-method", p2_path.parent.name, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
+            )
+        except Exception:
+            continue
+
+        p3_path = p3_root / method.lower() / p2_path.name
+        p1_path = p1_root / method.lower() / f"{sample_id}_{method.lower()}_img_edge_number.png"
+
+        if p1_path.exists() and p3_path.exists():
+            triplets.append({
+                "p1": str(p1_path),
+                "p2": str(p2_path),
+                "p3": str(p3_path),
+                "sample_id": sample_id,
+                "region_id": region_id,
+                "crop_method": method,
+            })
+
+    if args.max_items is not None:
+        triplets = triplets[: args.max_items]
+
+    if not triplets:
+        raise ValueError("No valid p1/p2/p3 triplets discovered.")
+
+    return triplets
+
+
+def build_messages(args: argparse.Namespace, item: dict):
+    p1 = _normalize_image_ref(item["p1"])
+    p2 = _normalize_image_ref(item["p2"])
+    p3 = _normalize_image_ref(item["p3"])
 
     system_prompt = _resolve_system_prompt(args)
     user_template = _resolve_user_template(args)
 
-    md = _resolve_metadata(args)
+    md = _resolve_metadata(
+        args=args,
+        sample_id=item["sample_id"],
+        method=item["crop_method"],
+        region_id=item["region_id"],
+    )
     method_definition = args.method_definition or METHOD_DEFINITION_MAP[md["crop_method"]]
 
     user_prompt = user_template.format(
@@ -217,7 +281,7 @@ def build_messages(args: argparse.Namespace):
         method_definition=method_definition,
     )
 
-    return [
+    messages = [
         {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
         {
             "role": "user",
@@ -232,6 +296,7 @@ def build_messages(args: argparse.Namespace):
             ],
         },
     ]
+    return messages, md
 
 
 def parse_args():
@@ -239,13 +304,20 @@ def parse_args():
         description="Run local HF Qwen-VL prompt for spectrogram artifact analysis."
     )
     parser.add_argument("--model-id", required=True, help="HF model id or local model path.")
-    parser.add_argument("--p1", required=True, help="Path/URL for P1 full fake spectrogram.")
-    parser.add_argument("--p2", required=True, help="Path/URL for P2 fake crop.")
-    parser.add_argument("--p3", required=True, help="Path/URL for P3 real aligned crop.")
+
+    parser.add_argument("--p1", default=None, help="Optional single-item P1 path/URL.")
+    parser.add_argument("--p2", default=None, help="Optional single-item P2 path/URL.")
+    parser.add_argument("--p3", default=None, help="Optional single-item P3 path/URL.")
+
+    parser.add_argument("--p1-root", default=DEFAULT_P1_ROOT, help="Root for P1 files.")
+    parser.add_argument("--p2-root", default=DEFAULT_P2_ROOT, help="Root for P2 files to discover.")
+    parser.add_argument("--p3-root", default=DEFAULT_P3_ROOT, help="Root for P3 files.")
+    parser.add_argument("--max-items", type=int, default=None, help="Optional cap for discovered items.")
+
     parser.add_argument(
         "--meta-csv",
         default=DEFAULT_META_CSV,
-        help="CSV path with sample_id/method/region_id/T/F/P. Default points to your region table.",
+        help="CSV path with sample_id/method/region_id/T/F/P.",
     )
 
     parser.add_argument(
@@ -263,8 +335,6 @@ def parse_args():
         ),
     )
 
-    parser.add_argument("--sample-id", default=None, help="Optional manual sample_id override.")
-    parser.add_argument("--region-id", type=int, default=None, help="Optional manual region_id override.")
     parser.add_argument("--crop-method", default=None, help="Optional crop method override.")
     parser.add_argument("--time", default=None, help="Optional time override.")
     parser.add_argument("--frequency", default=None, help="Optional frequency override.")
@@ -276,7 +346,10 @@ def parse_args():
     parser.add_argument("--max-new-tokens", type=int, default=600)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=1.0)
-    parser.add_argument("--output-file", default=None, help="Optional file to save model output.")
+
+    parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Per-sample output root.")
+    parser.add_argument("--output-file", default=None, help="Single-item output file.")
+    parser.add_argument("--output-jsonl", default=None, help="Optional flat batch output jsonl file.")
     parser.add_argument("--print-messages", action="store_true", help="Print built messages before generation.")
     return parser.parse_args()
 
@@ -293,21 +366,7 @@ def _resolve_torch_dtype(dtype_str: str):
     return mapping[dtype_str]
 
 
-def main():
-    args = parse_args()
-    messages = build_messages(args)
-
-    if args.print_messages:
-        print(messages)
-
-    torch_dtype = _resolve_torch_dtype(args.dtype)
-    model = AutoModelForImageTextToText.from_pretrained(
-        args.model_id,
-        torch_dtype=torch_dtype,
-        device_map=args.device_map,
-    )
-    processor = AutoProcessor.from_pretrained(args.model_id)
-
+def _generate_one(model, processor, messages, max_new_tokens, temperature, top_p):
     inputs = processor.apply_chat_template(
         messages,
         tokenize=True,
@@ -317,11 +376,11 @@ def main():
     )
     inputs = inputs.to(model.device)
 
-    do_sample = args.temperature > 0.0
-    generate_kwargs = {"max_new_tokens": args.max_new_tokens, "do_sample": do_sample}
+    do_sample = temperature > 0.0
+    generate_kwargs = {"max_new_tokens": max_new_tokens, "do_sample": do_sample}
     if do_sample:
-        generate_kwargs["temperature"] = args.temperature
-        generate_kwargs["top_p"] = args.top_p
+        generate_kwargs["temperature"] = temperature
+        generate_kwargs["top_p"] = top_p
 
     generated_ids = model.generate(**inputs, **generate_kwargs)
     generated_ids_trimmed = [
@@ -332,13 +391,94 @@ def main():
         skip_special_tokens=True,
         clean_up_tokenization_spaces=False,
     )[0]
+    return output_text
 
-    print(output_text)
 
-    if args.output_file:
-        output_path = Path(args.output_file).expanduser().resolve()
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(output_text, encoding="utf-8")
+def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
+    for sample_id, records in records_by_sample.items():
+        sample_dir = output_dir / sample_id
+        sample_dir.mkdir(parents=True, exist_ok=True)
+
+        records_sorted = sorted(records, key=lambda x: x["region_id"])
+        payload = {
+            "sample_id": sample_id,
+            "num_regions": len(records_sorted),
+            "regions": records_sorted,
+        }
+
+        out_file = sample_dir / "json"
+        out_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def main():
+    args = parse_args()
+    items = _discover_triplets(args)
+
+    if len(items) > 1 and args.output_file:
+        raise ValueError("--output-file is only for single item. Use --output-dir for grouped outputs.")
+
+    torch_dtype = _resolve_torch_dtype(args.dtype)
+    model = AutoModelForImageTextToText.from_pretrained(
+        args.model_id,
+        torch_dtype=torch_dtype,
+        device_map=args.device_map,
+    )
+    processor = AutoProcessor.from_pretrained(args.model_id)
+
+    jsonl_fp = None
+    if args.output_jsonl:
+        out_path = Path(args.output_jsonl).expanduser().resolve()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        jsonl_fp = out_path.open("w", encoding="utf-8")
+
+    records_by_sample = defaultdict(list)
+
+    try:
+        for idx, item in enumerate(items, start=1):
+            messages, md = build_messages(args, item)
+            if args.print_messages:
+                print(messages)
+
+            output_text = _generate_one(
+                model=model,
+                processor=processor,
+                messages=messages,
+                max_new_tokens=args.max_new_tokens,
+                temperature=args.temperature,
+                top_p=args.top_p,
+            )
+
+            record = {
+                "sample_id": md["sample_id"],
+                "region_id": md["region_id"],
+                "crop_method": md["crop_method"],
+                "time": md["time"],
+                "frequency": md["frequency"],
+                "phoneme": md["phoneme"],
+                "p1": item["p1"],
+                "p2": item["p2"],
+                "p3": item["p3"],
+                "response": output_text,
+            }
+
+            records_by_sample[record["sample_id"]].append(record)
+
+            print(f"[{idx}/{len(items)}] {record['sample_id']}__r{record['region_id']}")
+            print(output_text)
+
+            if jsonl_fp is not None:
+                jsonl_fp.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+            if len(items) == 1 and args.output_file:
+                out_file = Path(args.output_file).expanduser().resolve()
+                out_file.parent.mkdir(parents=True, exist_ok=True)
+                out_file.write_text(output_text, encoding="utf-8")
+    finally:
+        if jsonl_fp is not None:
+            jsonl_fp.close()
+
+    output_root = Path(args.output_dir).expanduser().resolve()
+    _write_sample_grouped_json(output_root, records_by_sample)
 
 
 if __name__ == "__main__":
