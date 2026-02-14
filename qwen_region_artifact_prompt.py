@@ -423,8 +423,9 @@ def main():
         args.model_id,
         torch_dtype=torch_dtype,
         device_map=args.device_map,
+        trust_remote_code=True,
     )
-    processor = AutoProcessor.from_pretrained(args.model_id)
+    processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
 
     jsonl_fp = None
     if args.output_jsonl:
