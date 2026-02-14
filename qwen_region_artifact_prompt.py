@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import argparse
+import csv
+import re
 from pathlib import Path
 
 import torch
@@ -9,6 +11,7 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 THIS_DIR = Path(__file__).resolve().parent
 DEFAULT_SYSTEM_FILE = THIS_DIR / "prompts" / "region_forensics_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
+DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all.csv"
 
 DEFAULT_USER_TEMPLATE = (
     "This region corresponds to {time} section, {frequency} frequency band, and {phoneme}.\n"
@@ -92,21 +95,107 @@ def _normalize_choice(field_name: str, value: str, mapping: dict, allowed_hint: 
     lowered = value.lower()
     if lowered in mapping:
         return mapping[lowered]
+    raise ValueError(f"Unsupported --{field_name} value: {value}. Allowed: {allowed_hint}")
+
+
+def _parse_sample_region_from_p2(p2_value: str):
+    p = Path(p2_value)
+    stem = p.stem
+    m = re.match(r"^(?P<sample_id>.+)__r(?P<region_id>\d+)$", stem)
+    if not m:
+        raise ValueError(
+            "Unable to parse sample_id/region_id from --p2 filename. "
+            "Expected pattern: <sample_id>__r<region_id>.png"
+        )
+
+    sample_id = m.group("sample_id")
+    region_id = int(m.group("region_id"))
+    method_raw = p.parent.name
+    method = _normalize_choice(
+        "crop-method", method_raw, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
+    )
+    return sample_id, region_id, method
+
+
+def _lookup_region_metadata(csv_path: Path, sample_id: str, method: str, region_id: int):
+    resolved = csv_path.expanduser().resolve()
+    if not resolved.exists():
+        raise FileNotFoundError(f"--meta-csv file does not exist: {resolved}")
+
+    with resolved.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            sid = str(row.get("sample_id", "")).strip()
+            mth = str(row.get("method", "")).strip().lower()
+            rid_str = str(row.get("region_id", "")).strip()
+            if not sid or not mth or not rid_str:
+                continue
+            try:
+                rid = int(rid_str)
+            except ValueError:
+                continue
+
+            if sid == sample_id and mth == method.lower() and rid == region_id:
+                t_val = str(row.get("T", "")).strip()
+                f_val = str(row.get("F", "")).strip()
+                p_val = str(row.get("P", "")).strip()
+                if not t_val or not f_val or not p_val:
+                    raise ValueError(
+                        f"Matched row missing T/F/P values for sample_id={sample_id}, method={method}, region_id={region_id}"
+                    )
+                return t_val, f_val, p_val
+
     raise ValueError(
-        f"Unsupported --{field_name} value: {value}. Allowed: {allowed_hint}"
+        f"No matching row in CSV for sample_id={sample_id}, method={method}, region_id={region_id}"
     )
 
 
-def _normalize_metadata(args: argparse.Namespace):
-    time_value = _normalize_choice("time", args.time, TIME_MAP, "S, NS, speech, non_speech")
-    frequency_value = _normalize_choice(
-        "frequency", args.frequency, FREQUENCY_MAP, "L, M, H, low, mid, high"
-    )
-    phoneme_value = _normalize_choice("phoneme", args.phoneme, PHONEME_MAP, "C, V, none")
+def _resolve_metadata(args: argparse.Namespace):
+    csv_path = Path(args.meta_csv)
+
+    inferred_sample_id = args.sample_id
+    inferred_region_id = args.region_id
+    inferred_method = args.crop_method
+
+    if inferred_sample_id is None or inferred_region_id is None or inferred_method is None:
+        p2_sample_id, p2_region_id, p2_method = _parse_sample_region_from_p2(args.p2)
+        if inferred_sample_id is None:
+            inferred_sample_id = p2_sample_id
+        if inferred_region_id is None:
+            inferred_region_id = p2_region_id
+        if inferred_method is None:
+            inferred_method = p2_method
+
     crop_method_value = _normalize_choice(
-        "crop-method", args.crop_method, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
+        "crop-method", str(inferred_method), CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
     )
-    return time_value, frequency_value, phoneme_value, crop_method_value
+
+    if args.time and args.frequency and args.phoneme:
+        time_raw = args.time
+        freq_raw = args.frequency
+        phoneme_raw = args.phoneme
+    else:
+        time_raw, freq_raw, phoneme_raw = _lookup_region_metadata(
+            csv_path=csv_path,
+            sample_id=str(inferred_sample_id),
+            method=crop_method_value,
+            region_id=int(inferred_region_id),
+        )
+
+    time_value = _normalize_choice("time", time_raw, TIME_MAP, "S, NS, speech, non_speech")
+    frequency_value = _normalize_choice(
+        "frequency", freq_raw, FREQUENCY_MAP, "L, M, H, low, mid, high"
+    )
+    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "C, V, none")
+
+    return {
+        "sample_id": str(inferred_sample_id),
+        "region_id": int(inferred_region_id),
+        "crop_method": crop_method_value,
+        "time": time_value,
+        "frequency": frequency_value,
+        "phoneme": phoneme_value,
+    }
 
 
 def build_messages(args: argparse.Namespace):
@@ -117,22 +206,19 @@ def build_messages(args: argparse.Namespace):
     system_prompt = _resolve_system_prompt(args)
     user_template = _resolve_user_template(args)
 
-    time_value, frequency_value, phoneme_value, crop_method_value = _normalize_metadata(args)
-    method_definition = args.method_definition or METHOD_DEFINITION_MAP[crop_method_value]
+    md = _resolve_metadata(args)
+    method_definition = args.method_definition or METHOD_DEFINITION_MAP[md["crop_method"]]
 
     user_prompt = user_template.format(
-        time=time_value,
-        frequency=frequency_value,
-        phoneme=phoneme_value,
-        crop_method=crop_method_value,
+        time=md["time"],
+        frequency=md["frequency"],
+        phoneme=md["phoneme"],
+        crop_method=md["crop_method"],
         method_definition=method_definition,
     )
 
     return [
-        {
-            "role": "system",
-            "content": [{"type": "text", "text": system_prompt}],
-        },
+        {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
         {
             "role": "user",
             "content": [
@@ -157,12 +243,15 @@ def parse_args():
     parser.add_argument("--p2", required=True, help="Path/URL for P2 fake crop.")
     parser.add_argument("--p3", required=True, help="Path/URL for P3 real aligned crop.")
     parser.add_argument(
+        "--meta-csv",
+        default=DEFAULT_META_CSV,
+        help="CSV path with sample_id/method/region_id/T/F/P. Default points to your region table.",
+    )
+
+    parser.add_argument(
         "--system-file",
         default=None,
-        help=(
-            "Path to system prompt txt. Default: "
-            f"{DEFAULT_SYSTEM_FILE.as_posix()}"
-        ),
+        help=("Path to system prompt txt. Default: " f"{DEFAULT_SYSTEM_FILE.as_posix()}"),
     )
     parser.add_argument(
         "--user-template-file",
@@ -174,19 +263,13 @@ def parse_args():
         ),
     )
 
-    parser.add_argument("--time", required=True, help="Region time label: S/NS or speech/non_speech.")
-    parser.add_argument("--frequency", required=True, help="Region frequency label: L/M/H or low/mid/high.")
-    parser.add_argument("--phoneme", required=True, help="Region phoneme label: C/V/none.")
-    parser.add_argument(
-        "--crop-method",
-        required=True,
-        help="Crop method: GRID/SUPERPIXEL/SAM (case-insensitive).",
-    )
-    parser.add_argument(
-        "--method-definition",
-        default=None,
-        help="Short description of how the crop method defines P2.",
-    )
+    parser.add_argument("--sample-id", default=None, help="Optional manual sample_id override.")
+    parser.add_argument("--region-id", type=int, default=None, help="Optional manual region_id override.")
+    parser.add_argument("--crop-method", default=None, help="Optional crop method override.")
+    parser.add_argument("--time", default=None, help="Optional time override.")
+    parser.add_argument("--frequency", default=None, help="Optional frequency override.")
+    parser.add_argument("--phoneme", default=None, help="Optional phoneme override.")
+    parser.add_argument("--method-definition", default=None, help="Optional crop method definition override.")
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
     parser.add_argument("--dtype", default="auto", help="Model dtype, e.g., auto, float16, bfloat16.")
@@ -194,11 +277,7 @@ def parse_args():
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--output-file", default=None, help="Optional file to save model output.")
-    parser.add_argument(
-        "--print-messages",
-        action="store_true",
-        help="Print the built messages before generation.",
-    )
+    parser.add_argument("--print-messages", action="store_true", help="Print built messages before generation.")
     return parser.parse_args()
 
 
@@ -239,10 +318,7 @@ def main():
     inputs = inputs.to(model.device)
 
     do_sample = args.temperature > 0.0
-    generate_kwargs = {
-        "max_new_tokens": args.max_new_tokens,
-        "do_sample": do_sample,
-    }
+    generate_kwargs = {"max_new_tokens": args.max_new_tokens, "do_sample": do_sample}
     if do_sample:
         generate_kwargs["temperature"] = args.temperature
         generate_kwargs["top_p"] = args.top_p
