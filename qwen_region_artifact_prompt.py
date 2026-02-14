@@ -68,12 +68,19 @@ CROP_METHOD_MAP = {
 
 
 def _normalize_image_ref(value: str) -> str:
-    if value.startswith(("http://", "https://", "file://", "data:")):
+    if value.startswith(("http://", "https://", "data:")):
         return value
-    p = Path(value).expanduser().resolve()
+
+    # For local files, return plain absolute paths (not file:// URIs),
+    # since some transformers builds do not accept file:// sources.
+    if value.startswith("file://"):
+        p = Path(value[len("file://"):]).expanduser().resolve()
+    else:
+        p = Path(value).expanduser().resolve()
+
     if not p.exists():
         raise FileNotFoundError(f"Image path does not exist: {p}")
-    return p.as_uri()
+    return str(p)
 
 
 def _load_text_file(path: Path, field_name: str) -> str:
@@ -421,7 +428,7 @@ def main():
     torch_dtype = _resolve_torch_dtype(args.dtype)
     model = AutoModelForImageTextToText.from_pretrained(
         args.model_id,
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
         device_map=args.device_map,
         trust_remote_code=True,
     )
