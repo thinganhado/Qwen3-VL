@@ -22,6 +22,39 @@ METHOD_DEFINITION_MAP = {
     "SAM": "The crop is taken from a region that follows the visible edges of the pattern as closely as possible.",
 }
 
+TIME_MAP = {
+    "S": "S",
+    "NS": "NS",
+    "speech": "S",
+    "non_speech": "NS",
+    "non-speech": "NS",
+    "nonspeech": "NS",
+}
+
+FREQUENCY_MAP = {
+    "L": "L",
+    "M": "M",
+    "H": "H",
+    "low": "L",
+    "mid": "M",
+    "high": "H",
+}
+
+PHONEME_MAP = {
+    "C": "C",
+    "V": "V",
+    "none": "none",
+}
+
+CROP_METHOD_MAP = {
+    "GRID": "GRID",
+    "SUPERPIXEL": "SUPERPIXEL",
+    "SAM": "SAM",
+    "grid": "GRID",
+    "superpixel": "SUPERPIXEL",
+    "sam": "SAM",
+}
+
 
 def _normalize_image_ref(value: str) -> str:
     if value.startswith(("http://", "https://", "file://", "data:")):
@@ -53,6 +86,29 @@ def _resolve_user_template(args: argparse.Namespace) -> str:
     return _load_text_file(Path(args.user_template_file), "--user-template-file")
 
 
+def _normalize_choice(field_name: str, value: str, mapping: dict, allowed_hint: str) -> str:
+    if value in mapping:
+        return mapping[value]
+    lowered = value.lower()
+    if lowered in mapping:
+        return mapping[lowered]
+    raise ValueError(
+        f"Unsupported --{field_name} value: {value}. Allowed: {allowed_hint}"
+    )
+
+
+def _normalize_metadata(args: argparse.Namespace):
+    time_value = _normalize_choice("time", args.time, TIME_MAP, "S, NS, speech, non_speech")
+    frequency_value = _normalize_choice(
+        "frequency", args.frequency, FREQUENCY_MAP, "L, M, H, low, mid, high"
+    )
+    phoneme_value = _normalize_choice("phoneme", args.phoneme, PHONEME_MAP, "C, V, none")
+    crop_method_value = _normalize_choice(
+        "crop-method", args.crop_method, CROP_METHOD_MAP, "GRID, SUPERPIXEL, SAM"
+    )
+    return time_value, frequency_value, phoneme_value, crop_method_value
+
+
 def build_messages(args: argparse.Namespace):
     p1 = _normalize_image_ref(args.p1)
     p2 = _normalize_image_ref(args.p2)
@@ -60,13 +116,15 @@ def build_messages(args: argparse.Namespace):
 
     system_prompt = _resolve_system_prompt(args)
     user_template = _resolve_user_template(args)
-    method_definition = args.method_definition or METHOD_DEFINITION_MAP[args.crop_method]
+
+    time_value, frequency_value, phoneme_value, crop_method_value = _normalize_metadata(args)
+    method_definition = args.method_definition or METHOD_DEFINITION_MAP[crop_method_value]
 
     user_prompt = user_template.format(
-        time=args.time,
-        frequency=args.frequency,
-        phoneme=args.phoneme,
-        crop_method=args.crop_method,
+        time=time_value,
+        frequency=frequency_value,
+        phoneme=phoneme_value,
+        crop_method=crop_method_value,
         method_definition=method_definition,
     )
 
@@ -116,13 +174,13 @@ def parse_args():
         ),
     )
 
-    parser.add_argument("--time", required=True, choices=["S", "NS"], help="Region time label.")
+    parser.add_argument("--time", required=True, help="Region time label: S/NS or speech/non_speech.")
+    parser.add_argument("--frequency", required=True, help="Region frequency label: L/M/H or low/mid/high.")
+    parser.add_argument("--phoneme", required=True, help="Region phoneme label: C/V/none.")
     parser.add_argument(
-        "--frequency", required=True, choices=["L", "M", "H"], help="Region frequency label."
-    )
-    parser.add_argument("--phoneme", required=True, choices=["C", "V"], help="Region phoneme label.")
-    parser.add_argument(
-        "--crop-method", required=True, choices=["GRID", "SUPERPIXEL", "SAM"], help="Crop method."
+        "--crop-method",
+        required=True,
+        help="Crop method: GRID/SUPERPIXEL/SAM (case-insensitive).",
     )
     parser.add_argument(
         "--method-definition",
@@ -191,7 +249,7 @@ def main():
 
     generated_ids = model.generate(**inputs, **generate_kwargs)
     generated_ids_trimmed = [
-        out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
     ]
     output_text = processor.batch_decode(
         generated_ids_trimmed,

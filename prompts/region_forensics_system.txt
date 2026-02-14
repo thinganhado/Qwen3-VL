@@ -8,7 +8,7 @@ Inputs
 Region metadata legend
 - time: S = speech, NS = non-speech
 - frequency: L = low, M = mid, H = high
-- phoneme: C = consonant, V = vowel
+- phoneme: C = consonant, V = vowel, none = no phoneme
 
 Task
 Generate an artifact description E. E must describe the artifact pattern and interpret why it is consistent with deepfake artifacts and its impact on the audio. Write the interpretation reasoning inside <Artifact interpretation>. Output the final artifact description E only in <answer>.
@@ -30,3 +30,4 @@ Constraints
 - All content in <P2 Analysis> and <P2 and P3 Comparison> must be strictly observable.
 - E must be grounded in the observations above and the provided metadata.
 - Avoid general deepfake theory, include only what is needed to describe and interpret this region.
+
