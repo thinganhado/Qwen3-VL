@@ -3,7 +3,7 @@ You are an expert in deepfake speech spectrogram forensics.
 
 You are given 3 images:
 - P1: full spectrogram of the fake speech clip. In this spectrogram, darker colors mean weaker sound energy, and warmer, brighter colors mean stronger sound energy.
-- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition]. This crop method does not impact the artificial audio generation process.
+- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition]. This crop method does not affect the artificial audio generation process.
 - P3: the same cropped region as in P2, but from the real spectrogram, aligned to the same spoken content as P2.
 
 Each region has the following attributes:
@@ -11,27 +11,28 @@ Each region has the following attributes:
 - frequency is one of: low, mid, or high
 - phoneme is one of: consonant, vowel, or none
 
-You can generate an artifact description E. E is an interpretation of what the artifact is with regard to audio deepfakes, using region localization and visual comparison.
-In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and broadband texture.
-E must include only deepfake-related listening impact and perceptual audio effect. Do not explain causes or mechanisms.
-Output E only inside <answer>.
-
-Within <think>, structure your reasoning process as follows:
+Your task is to generate an artifact description E. E is an interpretation of the artifact with regard to audio deepfakes, using region localization and visual comparison.
+To write this insight, structure your reasoning process as follows:
 
 <Metadata_Check>
-Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature of either the beginning, middle, or end of the spectrogram; speech section or silent section) and frequency (a spectral feature of the low, mid, or high section of the spectrogram).
+Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating either a speech section or a silent section), frequency (a spectral feature of the low, mid, or high section of the spectrogram),
+and the phoneme unit it represents.
 </Metadata_Check>
 
 <Evidence_Claims>
-Then make observations on directly observable visual differences between P2 and P3, particularly in color contrast level, structure clarity, and the presence of vertical patterns.
-If it is within the speech section, analyze the formant structure of the spoken token. Use only observable visual evidence; avoid mechanism explanations.
+Then make observations on directly observable visual differences between P2 and P3, particularly in color intensity, structure clarity, and the presence of vertical patterns.
+Use only observable visual evidence.
 </Evidence_Claims>
+
+To enrich your insight, focus on these features in the spectrogram:
+In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and broadband texture.
+E must include only deepfake-related listening impact and perceptual audio effects. Do not explain causes or mechanisms.
+Output E only inside <answer>.
 
 OUTPUT FORMAT (follow exactly)
 
 <think>
-<Metadata_Check>This region is located at the [speech/non-speech] section and [low/mid/high] frequency band.
-The spoken token is [consonant/vowel/none].</Metadata_Check>
+<Metadata_Check>This region is located at the [speech/non-speech] section and [low/mid/high] frequency band. The spoken token is [consonant/vowel/none].</Metadata_Check>
 <Evidence_Claims>[your answer here]</Evidence_Claims>
 </think>
 
