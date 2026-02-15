@@ -66,6 +66,11 @@ PHONEME_MAP = {
     "vowel": "vowel",
 }
 
+ARPABET_VOWELS = {
+    "AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "IH", "IY", "OW", "OY", "UH", "UW",
+    "AX", "AXR", "IX", "UX",
+}
+
 FEATURE_MAP = {
     "Boundary/Coarticulation": "coarticulation",
     "boundary/coarticulation": "coarticulation",
@@ -138,6 +143,33 @@ def _normalize_choice(field_name: str, value: str, mapping: dict, allowed_hint: 
     raise ValueError(f"Unsupported --{field_name} value: {value}. Allowed: {allowed_hint}")
 
 
+def _coerce_phoneme_label(value: str) -> str:
+    raw = str(value).strip()
+    if not raw:
+        return "unvoiced"
+
+    # First, handle direct aliases and legacy labels.
+    if raw in PHONEME_MAP:
+        return PHONEME_MAP[raw]
+    lowered = raw.lower()
+    if lowered in PHONEME_MAP:
+        return PHONEME_MAP[lowered]
+
+    # Normalize ARPAbet phone labels (e.g., OW0 -> OW).
+    base = re.sub(r"\d+$", "", raw).upper()
+    if base in {"SIL", "SP", "SPN", "NSN", "<EPS>", "NONE"}:
+        return "unvoiced"
+    if base in ARPABET_VOWELS:
+        return "vowel"
+
+    # Non-vowel ARPAbet phone defaults to consonant.
+    if re.fullmatch(r"[A-Z]+", base):
+        return "consonant"
+
+    # Conservative fallback.
+    return "unvoiced"
+
+
 def _parse_sample_region_from_filename(path_value: str):
     p = Path(path_value)
     stem = p.stem
@@ -171,8 +203,10 @@ def _lookup_region_metadata(csv_path: Path, sample_id: str, method: str, region_
             if sid == sample_id and mth == method.lower() and rid == region_id:
                 t_val = str(row.get("T", "")).strip()
                 f_val = str(row.get("F", "")).strip()
-                # Accept both legacy P_type and current P column.
-                p_val = str(row.get("P", row.get("P_type", ""))).strip()
+                # Prefer legacy coarse label P_type when available; otherwise use raw P.
+                p_type_val = str(row.get("P_type", "")).strip()
+                p_raw_val = str(row.get("P", "")).strip()
+                p_val = p_type_val if p_type_val else p_raw_val
                 feat_val = str(row.get("feature", "")).strip() or "none"
                 if not t_val or not f_val or not p_val:
                     raise ValueError(
@@ -207,7 +241,7 @@ def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, reg
     frequency_value = _normalize_choice(
         "frequency", freq_raw, FREQUENCY_MAP, "low, mid, high"
     )
-    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "consonant, vowel, unvoiced")
+    phoneme_value = _coerce_phoneme_label(phoneme_raw)
     feature_value = _normalize_choice(
         "feature",
         feature_raw,
