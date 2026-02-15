@@ -14,7 +14,7 @@ THIS_DIR = Path(__file__).resolve().parent
 DEFAULT_SYSTEM_FILE = THIS_DIR / "prompts" / "region_forensics_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
 
-DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all.csv"
+DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype.csv"
 DEFAULT_P1_ROOT = "/scratch3/che489/Ha/interspeech/localization/Ms_region_outputs"
 DEFAULT_P2_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_top3"
 DEFAULT_P3_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_real"
@@ -55,6 +55,8 @@ PHONEME_MAP = {
     "C": "C",
     "V": "V",
     "none": "none",
+    "consonant": "C",
+    "vowel": "V",
 }
 
 CROP_METHOD_MAP = {
@@ -146,10 +148,10 @@ def _lookup_region_metadata(csv_path: Path, sample_id: str, method: str, region_
             if sid == sample_id and mth == method.lower() and rid == region_id:
                 t_val = str(row.get("T", "")).strip()
                 f_val = str(row.get("F", "")).strip()
-                p_val = str(row.get("P", "")).strip()
+                p_val = str(row.get("P_type", "")).strip()
                 if not t_val or not f_val or not p_val:
                     raise ValueError(
-                        f"Matched row missing T/F/P values for sample_id={sample_id}, method={method}, region_id={region_id}"
+                        f"Matched row missing T/F/P_type values for sample_id={sample_id}, method={method}, region_id={region_id}"
                     )
                 return t_val, f_val, p_val
 
