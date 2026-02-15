@@ -11,7 +11,8 @@ Each region has the following attributes:
 - frequency is one of: low, mid, or high
 - phoneme is one of: consonant, vowel, or none
 
-You can generate an artifact description E. E is an interpretation of what the artifact is with regard to audio deepfakes using region localization and visual comparison, particularly focusing in formant structures and energy loss.
+You can generate an artifact description E. E is an interpretation of what the artifact is with regard to audio deepfakes using region localization and visual comparison. 
+Particularly, for voiced region, focus on formant bands and transitions, harmonic lines and periodic structure. For unvoiced regions, focus on energy loss and broadband texture.
 E must only include the deepfake implication.  Do not restate visual details unless needed as evidence anchor.
 Output E only inside <answer>. 
 
@@ -22,7 +23,7 @@ Start by localizing where P2 is with respect to P1 as a whole, providing informa
 </Metadata_Check>
 
 <Evidence_Claims>
-Then make observations on directly observable visual differences between P2 and P3, particularly in color contrast level and clarity of shapes.
+Then make observations on directly observable visual differences between P2 and P3, particularly in color contrast level, structure clarity, and addition of vertical patterns.
 If it is within the speech section, analyze the formant structure of the spoken token. Use only observable visual evidence, avoid mechanism explanations.
 </Evidence_Claims>
 
