@@ -1,2 +1,2 @@
-This region corresponds to {time} section, {frequency} frequency band, and {phoneme} token.
+This region corresponds to {time} section, {frequency} frequency band, {phoneme} token, and {feature} feature.
 Please provide your thinking process within <think></think> tags and your final answer E within <answer></answer> tags.
