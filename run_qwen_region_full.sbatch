@@ -41,15 +41,26 @@ P3_ROOT="${P3_ROOT:-/scratch3/che489/Ha/interspeech/localization/region_crops_re
 META_CSV="${META_CSV:-/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype.csv}"
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
-OUTPUT_DIR="${OUTPUT_DIR:-/scratch3/che489/Ha/interspeech/localization/qwen3_vlm}"
-OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR}/qwen_region_outputs.jsonl}"
+OUTPUT_BASE_DIR="${OUTPUT_BASE_DIR:-/scratch3/che489/Ha/interspeech/localization/qwen3_vlm}"
+SHARD_COUNT="${SHARD_COUNT:-1}"
+SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
+if [[ "${SHARD_COUNT}" -gt 1 ]]; then
+  OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_BASE_DIR}/shard_${SHARD_ID}_of_${SHARD_COUNT}}"
+  OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_BASE_DIR}/qwen_region_outputs_shard_${SHARD_ID}_of_${SHARD_COUNT}.jsonl}"
+else
+  OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_BASE_DIR}}"
+  OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR}/qwen_region_outputs.jsonl}"
+fi
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-600}"
 DTYPE="${DTYPE:-auto}"
+BATCH_SIZE="${BATCH_SIZE:-1}"
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
 echo "[run] P2_ROOT=${P2_ROOT}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
+echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
+echo "[run] BATCH_SIZE=${BATCH_SIZE}"
 
 python "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --model-id "${MODEL_ID}" \
@@ -61,6 +72,9 @@ python "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --user-template-file "${USER_TEMPLATE_FILE}" \
   --dtype "${DTYPE}" \
   --max-new-tokens "${MAX_NEW_TOKENS}" \
+  --batch-size "${BATCH_SIZE}" \
+  --num-shards "${SHARD_COUNT}" \
+  --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
   --output-jsonl "${OUTPUT_JSONL}" \
   "$@"

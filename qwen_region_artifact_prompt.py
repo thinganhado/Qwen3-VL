@@ -323,6 +323,8 @@ def parse_args():
     parser.add_argument("--p2-root", default=DEFAULT_P2_ROOT, help="Root for P2 files to discover.")
     parser.add_argument("--p3-root", default=DEFAULT_P3_ROOT, help="Root for P3 files.")
     parser.add_argument("--max-items", type=int, default=None, help="Optional cap for discovered items.")
+    parser.add_argument("--num-shards", type=int, default=1, help="Split discovered items across N shards.")
+    parser.add_argument("--shard-id", type=int, default=0, help="Shard index in [0, num_shards).")
 
     parser.add_argument(
         "--meta-csv",
@@ -354,6 +356,7 @@ def parse_args():
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
     parser.add_argument("--dtype", default="auto", help="Model dtype, e.g., auto, float16, bfloat16.")
     parser.add_argument("--max-new-tokens", type=int, default=600)
+    parser.add_argument("--batch-size", type=int, default=1, help="Number of items to generate per forward pass.")
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling. If false, decoding is deterministic.")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-p", type=float, default=0.9)
@@ -405,6 +408,33 @@ def _generate_one(model, processor, messages, max_new_tokens, do_sample, tempera
     return output_text
 
 
+def _generate_batch(model, processor, batch_messages, max_new_tokens, do_sample, temperature, top_p):
+    inputs = processor.apply_chat_template(
+        batch_messages,
+        tokenize=True,
+        add_generation_prompt=True,
+        return_dict=True,
+        return_tensors="pt",
+    )
+    inputs = inputs.to(model.device)
+
+    do_sample = temperature > 0.0
+    generate_kwargs = {"max_new_tokens": max_new_tokens, "do_sample": do_sample}
+    if do_sample:
+        generate_kwargs["temperature"] = temperature
+        generate_kwargs["top_p"] = top_p
+
+    generated_ids = model.generate(**inputs, **generate_kwargs)
+    generated_ids_trimmed = [
+        out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+    ]
+    return processor.batch_decode(
+        generated_ids_trimmed,
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False,
+    )
+
+
 def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
     for sample_id, records in records_by_sample.items():
         sample_dir = output_dir / sample_id
@@ -424,6 +454,19 @@ def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
 def main():
     args = parse_args()
     items = _discover_triplets(args)
+
+    if args.num_shards < 1:
+        raise ValueError("--num-shards must be >= 1")
+    if args.shard_id < 0 or args.shard_id >= args.num_shards:
+        raise ValueError("--shard-id must be in [0, num_shards)")
+    if args.batch_size < 1:
+        raise ValueError("--batch-size must be >= 1")
+
+    if args.num_shards > 1:
+        items = [it for i, it in enumerate(items) if i % args.num_shards == args.shard_id]
+        print(f"[shard] shard_id={args.shard_id}/{args.num_shards} items={len(items)}")
+        if not items:
+            raise ValueError("No items assigned to this shard.")
 
     if len(items) > 1 and args.output_file:
         raise ValueError("--output-file is only for single item. Use --output-dir for grouped outputs.")
@@ -446,46 +489,66 @@ def main():
     records_by_sample = defaultdict(list)
 
     try:
-        for idx, item in enumerate(items, start=1):
-            messages, md = build_messages(args, item)
+        for batch_start in range(0, len(items), args.batch_size):
+            batch_items = items[batch_start: batch_start + args.batch_size]
+            batch_built = [build_messages(args, item) for item in batch_items]
+            batch_messages = [x[0] for x in batch_built]
+            batch_md = [x[1] for x in batch_built]
+
             if args.print_messages:
-                print(messages)
+                for m in batch_messages:
+                    print(m)
 
-            output_text = _generate_one(
-                model=model,
-                processor=processor,
-                messages=messages,
-                max_new_tokens=args.max_new_tokens,
-                do_sample=args.do_sample,
-                temperature=args.temperature,
-                top_p=args.top_p,
-            )
+            if len(batch_messages) == 1:
+                batch_outputs = [
+                    _generate_one(
+                        model=model,
+                        processor=processor,
+                        messages=batch_messages[0],
+                        max_new_tokens=args.max_new_tokens,
+                        do_sample=args.do_sample,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
+                    )
+                ]
+            else:
+                batch_outputs = _generate_batch(
+                    model=model,
+                    processor=processor,
+                    batch_messages=batch_messages,
+                    max_new_tokens=args.max_new_tokens,
+                    do_sample=args.do_sample,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                )
 
-            record = {
-                "sample_id": md["sample_id"],
-                "region_id": md["region_id"],
-                "crop_method": md["crop_method"],
-                "time": md["time"],
-                "frequency": md["frequency"],
-                "phoneme": md["phoneme"],
-                "p1": item["p1"],
-                "p2": item["p2"],
-                "p3": item["p3"],
-                "response": output_text,
-            }
+            for i, (item, md, output_text) in enumerate(zip(batch_items, batch_md, batch_outputs), start=1):
+                idx = batch_start + i
+                record = {
+                    "sample_id": md["sample_id"],
+                    "region_id": md["region_id"],
+                    "crop_method": md["crop_method"],
+                    "time": md["time"],
+                    "frequency": md["frequency"],
+                    "phoneme": md["phoneme"],
+                    "p1": item["p1"],
+                    "p2": item["p2"],
+                    "p3": item["p3"],
+                    "response": output_text,
+                }
 
-            records_by_sample[record["sample_id"]].append(record)
+                records_by_sample[record["sample_id"]].append(record)
 
-            print(f"[{idx}/{len(items)}] {record['sample_id']}__r{record['region_id']}")
-            print(output_text)
+                print(f"[{idx}/{len(items)}] {record['sample_id']}__r{record['region_id']}")
+                print(output_text)
 
-            if jsonl_fp is not None:
-                jsonl_fp.write(json.dumps(record, ensure_ascii=False) + "\n")
+                if jsonl_fp is not None:
+                    jsonl_fp.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-            if len(items) == 1 and args.output_file:
-                out_file = Path(args.output_file).expanduser().resolve()
-                out_file.parent.mkdir(parents=True, exist_ok=True)
-                out_file.write_text(output_text, encoding="utf-8")
+                if len(items) == 1 and args.output_file:
+                    out_file = Path(args.output_file).expanduser().resolve()
+                    out_file.parent.mkdir(parents=True, exist_ok=True)
+                    out_file.write_text(output_text, encoding="utf-8")
     finally:
         if jsonl_fp is not None:
             jsonl_fp.close()
