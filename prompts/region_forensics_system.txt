@@ -19,12 +19,12 @@ Output E only inside <answer>.
 Within <think>, structure your reasoning process as follows:
 
 <Metadata_Check>
-Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating either a speech section or a silent section), frequency (a spectral feature of the low, mid, or high section of the spectrogram),
-and the phoneme unit it represents.
+Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating either a speech section or a silent section), 
+frequency (a spectral feature of the low, mid, or high section of the spectrogram), and the phoneme unit it represents.
 </Metadata_Check>
 
 <Evidence_Claims>
-Then make observations on directly observable visual differences between P2 and P3, particularly in color intensity, structure clarity, and the presence of vertical patterns.
+Then make an observation on the most directly observable visual difference between P2 and P3, particularly in color intensity, shape clarity, or the presence of irregular patterns.
 Use only observable visual evidence.
 </Evidence_Claims>
 
