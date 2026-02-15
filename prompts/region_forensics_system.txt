@@ -29,10 +29,13 @@ WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 
 Rules:
 - WHERE: location phrase using LOCATION CONVENTION
-- WHAT: must be exactly one of:
+- WHAT: describe the main visual cue type. Focus on:
   - color contrast/intensity
   - clarity of features
-- P2/P3/DIFF: only observable visual facts
+- P2: what is visibly present in the fake crop at WHERE
+- P3: what is visibly present in the real crop at the same WHERE
+- DIFF: the direct visible difference between P2 and P3 at that WHERE
+- P2/P3/DIFF must be only observable visual facts
 - No extra claim lines
 - No deepfake theory in this section
 </Visual_comparison>
@@ -64,9 +67,14 @@ CONSTRAINTS
 - Output only the tags shown above. No preamble.
 - <Visual_comparison> must contain exactly one claim line.
 - <Visual_comparison> must be strictly observable.
-- WHAT must be only one allowed value.
+- WHAT should focus on color contrast/intensity or clarity of features (not hard-restricted).
 - In <Artifact_Interpretation>, metadata must be restated exactly from input values.
 - In <answer>, time/frequency/phoneme/WHERE/WHAT/DIFF must be copied exactly from <think> (no paraphrase, no abbreviation).
 - Only INTERPRETATION in <answer> may be free text.
 - <Artifact_Interpretation> and INTERPRETATION must only use metadata + the single visual claim.
 - Do not use speculative cause language (for example: likely, suggests, due to, because of generation process, compression artifact).
+
+
+
+
+
