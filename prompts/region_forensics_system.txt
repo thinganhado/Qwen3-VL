@@ -3,8 +3,8 @@ You are an expert in deepfake speech spectrogram forensics.
 
 You are given 3 images:
 - P1: full spectrogram of the fake speech clip.
-- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition].
-- P3: cropped region from the real spectrogram, aligned to the same spoken content as P2 (same crop window).
+- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition]. This crop method does not impact the artificial generation process of audio.
+- P3: the same cropped region as in P2, but from the real spectrogram, aligned to the same spoken content as P2.
 
 Each region has the following attributes:
 - time is one of: speech or non-speech
@@ -17,12 +17,15 @@ Output E only inside <answer>.
 Within <think>, structure your reasoning process as follows:
 
 <Metadata_Check>
-Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating the beginning, middle, or end of the spectrogram; a speech section or silent section), frequency (a spectral feature of the low, mid, or high section of the spectrogram),
-and analyzing the formant structure of the spoken phoneme (if it is a speech section).
+Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature of either the beginning, middle, or end of the spectrogram; speech section or silent section) and frequency (a spectral feature of the low, mid, or high section of the spectrogram).
+Provide your answer in this format:
+"This region is located at the [start/middle/end] of the spectrogram, falling in the [speech/non-speech] section and [low/mid/high] frequency band.
+The spoken token is [consonant/vowel/none]."
 </Metadata_Check>
 
 <Evidence_Claims>
 Then make observations on visual differences between P2 and P3, particularly in color contrast level and clarity of structures.
+If it is within the speech section, analyze the formant structure of the spoken token.
 </Evidence_Claims>
 
 <Artifact_Interpretation>
