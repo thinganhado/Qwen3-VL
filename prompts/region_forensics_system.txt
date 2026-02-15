@@ -7,69 +7,56 @@ INPUTS
 - P3: cropped region from the real spectrogram, aligned to the same spoken content as P2 (same crop window).
 
 REGION METADATA (exact values)
-- time is one of: speech or non-speech
-- frequency is one of: low, mid, or high
-- phoneme is one of: consonant, vowel, or none
+- time: speech or non-speech
+- frequency: low, mid, or high
+- phoneme: consonant, vowel, or none
 
-LOCATION CONVENTION (use only for WHERE, within the crop)
+LOCATION CONVENTION (for WHERE only, inside the crop)
 - left/right = earlier/later time
 - bottom/top = lower/higher frequency
-- Use short within-crop phrases like: left edge, right edge, upper half, lower half, center, entire crop.
+- Use short phrases: left edge, right edge, upper half, lower half, center, entire crop.
 
 TASK
-Generate an artifact description E by comparing P2 vs P3.
-Use P1 only in <Metadata_Check> to set brief global context for the region.
+Compare P2 and P3 and write artifact description E.
+Use P1 only as brief global context if needed.
 Output E only inside <answer>.
 
-THINKING STRUCTURE (inside <think>, follow exactly this order)
+THINKING STRUCTURE (inside <think>, follow this order)
 
-<Metadata_Check>
-Write ONE short sentence that:
-1) Restates metadata exactly as: time=...; frequency=...; phoneme=...
-2) Uses P1 only for brief context (global/continuity/background context) for this crop
-3) Sets focus to ONLY these two cue families:
-   - color contrast/intensity (energy strength)
-   - clarity of features (blurring vs clear spectral structure)
-Do not use any other cue family.
-</Metadata_Check>
-
-<Evidence_Claims>
-Write exactly ONE claim.
-The claim must be strictly observable and compare the same WHERE in P2 and P3.
-Use this exact field format:
+<Visual_comparison>
+Write exactly ONE observable comparison claim.
+Use this exact format:
 WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 
-Field rules:
-- WHERE: within-crop location phrase using LOCATION CONVENTION
+Rules:
+- WHERE: location phrase using LOCATION CONVENTION
 - WHAT: must be exactly one of:
   - color contrast/intensity
   - clarity of features
-- P2: observable cue in P2
-- P3: observable cue in P3 (or absent)
-- DIFF: observable P2 vs P3 difference
-
-No fallback rule. Always provide one claim.
-No P1 references in <Evidence_Claims>.
-</Evidence_Claims>
+- P2/P3/DIFF: only observable visual facts
+- No extra claim lines
+- No deepfake theory in this section
+</Visual_comparison>
 
 <Artifact_Interpretation>
-Interpret the artifact using only:
-- region metadata
-- the single claim from <Evidence_Claims>
-Do not introduce new cues beyond that claim.
-Avoid broad deepfake theory; keep interpretation local to this region and likely audio impact.
+Explain how metadata connects to the visual comparison.
+Start by restating metadata exactly with this template:
+Metadata: time=...; frequency=...; phoneme=...
+Then explain the likely artifact impact using only:
+- the metadata above
+- the single claim in <Visual_comparison>
+Do not add new cues.
 </Artifact_Interpretation>
 
 OUTPUT FORMAT (follow exactly)
 <think>
-<Metadata_Check>time=...; frequency=...; phoneme=...; P1_context=...; focus=color contrast/intensity + clarity of features</Metadata_Check>
-
-<Evidence_Claims>
+<Visual_comparison>
 WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
-</Evidence_Claims>
+</Visual_comparison>
 
 <Artifact_Interpretation>
-[Interpretation grounded ONLY in metadata + the single claim.]
+Metadata: time=...; frequency=...; phoneme=...
+[Connection between metadata and the visual comparison, with local audio impact.]
 </Artifact_Interpretation>
 </think>
 
@@ -77,10 +64,9 @@ WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 
 CONSTRAINTS
 - Output only the tags shown above. No preamble.
-- All content in <Evidence_Claims> must be strictly observable.
-- <Metadata_Check> must exactly match the provided metadata values.
-- P1 can be used only in <Metadata_Check>.
-- <Evidence_Claims> must contain exactly one claim.
-- WHAT must be only one of the two allowed cue families.
-- <Artifact_Interpretation> must only use cues already present in the claim and metadata.
-- <answer> must contain E only and must not introduce any new cues beyond the claim.
+- <Visual_comparison> must contain exactly one claim line.
+- <Visual_comparison> must be strictly observable.
+- WHAT must be only one allowed value.
+- In <Artifact_Interpretation>, metadata must be restated exactly from input values.
+- <Artifact_Interpretation> must only use metadata + the single visual claim.
+- <answer> must contain E only and must not introduce new cues.
