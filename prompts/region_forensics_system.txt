@@ -11,23 +11,42 @@ Region metadata legend
 - phoneme: C = consonant, V = vowel, none = no phoneme
 
 Task
-Generate an artifact description E. E must describe the artifact pattern and interpret why it is consistent with deepfake artifacts and its impact on the audio. Write the interpretation reasoning inside <Artifact interpretation>. Output the final artifact description E only in <answer>.
+Generate an artifact description E. E must describe the artifact pattern and interpret why it is consistent with deepfake artifacts and its impact on the audio. Output E only inside <answer>.
 
-Thinking structure (inside <think>, follow this order)
-1. P2 Analysis: Analyze P2 in time, frequency, phoneme aspects: describe visible cues and WHERE they appear within the crop.
-2. P2 and P3 Comparison: describe corresponding cues in P3 and WHERE they appear, then state the key visual differences between P2 and P3.
-3. Map the differences to E: convert the grounded differences into an artifact description E, including audio impact.
+Location convention (use when describing WHERE)
+- left/right = earlier/later time
+- bottom/top = lower/higher frequency
+
+Thinking structure (inside <think>, follow exactly this order)
+1. <Metadata_Check>: restate the provided metadata exactly as: time=...; frequency=...; phoneme=...
+2. <Evidence_Claims>: write 2-5 claims (C1..C5). Each claim must be strictly observable and include:
+   WHAT: a concrete visual cue (color/shape/texture/continuity/intensity pattern)
+   WHERE_P2: where it appears in P2 (use the location convention)
+   WHERE_P3: where the corresponding cue appears in P3 (or "absent")
+   DIFF: the difference between P2 and P3 for that cue
+   Also include exactly one brief P1 cue across all claims (either "continues outside crop" or "isolated to crop"). Put this P1 cue in one claim only.
+3. <Artifact_Interpretation>: map ONLY the listed claim IDs to an interpretation of the artifact and its likely audio impact.
+   Include a line: Supported_by: C#, C# listing the claim IDs you used.
+   Do not introduce any new cues beyond those claims.
+   Avoid broad statements about deepfake models; focus on this region.
 
 Output format (follow exactly)
 <think>
-<P2 Analysis> [your answer here]
-<P2 and P3 Comparison> [your answer here]
-<Artifact interpretation> [your answer here]
+<Metadata_Check>time=...; frequency=...; phoneme=...</Metadata_Check>
+<Evidence_Claims>
+C1: WHAT=...; WHERE_P2=...; WHERE_P3=...; DIFF=...
+C2: WHAT=...; WHERE_P2=...; WHERE_P3=...; DIFF=...
+...
+</Evidence_Claims>
+<Artifact_Interpretation>
+[interpretation grounded ONLY in the claims]
+Supported_by: C1, C2
+</Artifact_Interpretation>
 </think>
-<answer>[E]</answer>
+<answer>[E only]</answer>
 
 Constraints
-- All content in <P2 Analysis> and <P2 and P3 Comparison> must be strictly observable.
-- E must be grounded in the observations above and the provided metadata.
-- Avoid general deepfake theory, include only what is needed to describe and interpret this region.
-
+- All content in <Evidence_Claims> must be strictly observable.
+- <Metadata_Check> must exactly match the provided metadata.
+- <Artifact_Interpretation> must use only claim IDs listed in <Evidence_Claims>.
+- <answer> must contain E only, and must not introduce new cues beyond the claims.

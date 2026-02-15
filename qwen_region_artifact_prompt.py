@@ -354,8 +354,9 @@ def parse_args():
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
     parser.add_argument("--dtype", default="auto", help="Model dtype, e.g., auto, float16, bfloat16.")
     parser.add_argument("--max-new-tokens", type=int, default=600)
-    parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--do-sample", action="store_true", help="Enable sampling. If false, decoding is deterministic.")
+    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--top-p", type=float, default=0.9)
 
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Per-sample output root.")
     parser.add_argument("--output-file", default=None, help="Single-item output file.")
@@ -376,7 +377,7 @@ def _resolve_torch_dtype(dtype_str: str):
     return mapping[dtype_str]
 
 
-def _generate_one(model, processor, messages, max_new_tokens, temperature, top_p):
+def _generate_one(model, processor, messages, max_new_tokens, do_sample, temperature, top_p):
     inputs = processor.apply_chat_template(
         messages,
         tokenize=True,
@@ -455,6 +456,7 @@ def main():
                 processor=processor,
                 messages=messages,
                 max_new_tokens=args.max_new_tokens,
+                do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
             )
