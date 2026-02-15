@@ -12,7 +12,11 @@ Each region has the following attributes:
 - phoneme is one of: consonant, vowel, or none
 
 Your task is to generate an artifact description E. E is an interpretation of the artifact with regard to audio deepfakes, using region localization and visual comparison.
-To write this insight, structure your reasoning process as follows:
+In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and background noise.
+E must include only deepfake-related listening impact and perceptual audio effects. Do not explain causes or mechanisms.
+Output E only inside <answer>.
+
+Within <think>, structure your reasoning process as follows:
 
 <Metadata_Check>
 Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating either a speech section or a silent section), frequency (a spectral feature of the low, mid, or high section of the spectrogram),
@@ -23,11 +27,6 @@ and the phoneme unit it represents.
 Then make observations on directly observable visual differences between P2 and P3, particularly in color intensity, structure clarity, and the presence of vertical patterns.
 Use only observable visual evidence.
 </Evidence_Claims>
-
-To enrich your insight, focus on these features in the spectrogram:
-In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and background noise.
-E must include only deepfake-related listening impact and perceptual audio effects. Do not explain causes or mechanisms.
-Output E only inside <answer>.
 
 OUTPUT FORMAT (follow exactly)
 
