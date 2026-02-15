@@ -23,7 +23,7 @@ Start by localizing where P2 is with respect to P1 as a whole, providing informa
 
 <Evidence_Claims>
 Then make observations on directly observable visual differences between P2 and P3, particularly in color contrast level and clarity of shapes.
-If it is within the speech section, analyze the formant structure of the spoken token.
+If it is within the speech section, analyze the formant structure of the spoken token. Use only observable visual evidence, avoid mechanism explanations.
 </Evidence_Claims>
 
 OUTPUT FORMAT (follow exactly)
