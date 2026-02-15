@@ -1,2 +1,3 @@
-This region corresponds to {time} section, {frequency} frequency band, {phoneme} token, and {feature} feature.
+﻿This region corresponds to {time} section, {frequency} frequency band, {phoneme} token, and {feature} feature.
+The {feature} value is taken from the CSV feature column and can be one of: Boundary/Coarticulation, Frication, Formants, Harmonic structure, or none.
 Please provide your thinking process within <think></think> tags and your final answer E within <answer></answer> tags.

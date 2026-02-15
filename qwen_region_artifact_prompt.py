@@ -14,7 +14,7 @@ THIS_DIR = Path(__file__).resolve().parent
 DEFAULT_SYSTEM_FILE = THIS_DIR / "prompts" / "region_forensics_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
 
-DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype.csv"
+DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype_feature.csv"
 DEFAULT_P1_ROOT = "/scratch3/che489/Ha/interspeech/localization/Ms_region_outputs"
 DEFAULT_P2_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_top3"
 DEFAULT_P3_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_real"
@@ -22,7 +22,7 @@ DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/localization/qwen3_vlm"
 DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking"
 
 DEFAULT_USER_TEMPLATE = (
-    "This region corresponds to {time} section, {frequency} frequency band, and {phoneme}.\n"
+    "This region corresponds to {time} section, {frequency} frequency band, {phoneme} token, and {feature} feature.\n"
     "P2 is produced by {crop_method}. Method definition: {method_definition}\n"
     "Compare P2 vs P3 and generate E in the required format."
 )
@@ -54,9 +54,26 @@ FREQUENCY_MAP = {
 PHONEME_MAP = {
     "C": "consonant",
     "V": "vowel",
-    "none": "none",
+    "none": "silent",
+    "silent": "silent",
     "consonant": "consonant",
     "vowel": "vowel",
+}
+
+FEATURE_MAP = {
+    "Boundary/Coarticulation": "coarticulation",
+    "boundary/coarticulation": "coarticulation",
+    "coarticulation": "coarticulation",
+    "Frication": "frication",
+    "frication": "frication",
+    "Formants": "formant bands",
+    "formants": "formant bands",
+    "formant bands": "formant bands",
+    "Harmonic structure": "harmonic structure",
+    "harmonic structure": "harmonic structure",
+    "none": "no dominant speech feature",
+    "None": "no dominant speech feature",
+    "no dominant speech feature": "no dominant speech feature",
 }
 
 CROP_METHOD_MAP = {
@@ -148,12 +165,14 @@ def _lookup_region_metadata(csv_path: Path, sample_id: str, method: str, region_
             if sid == sample_id and mth == method.lower() and rid == region_id:
                 t_val = str(row.get("T", "")).strip()
                 f_val = str(row.get("F", "")).strip()
-                p_val = str(row.get("P_type", "")).strip()
+                # Accept both legacy P_type and current P column.
+                p_val = str(row.get("P", row.get("P_type", ""))).strip()
+                feat_val = str(row.get("feature", "")).strip() or "none"
                 if not t_val or not f_val or not p_val:
                     raise ValueError(
-                        f"Matched row missing T/F/P_type values for sample_id={sample_id}, method={method}, region_id={region_id}"
+                        f"Matched row missing T/F/P values for sample_id={sample_id}, method={method}, region_id={region_id}"
                     )
-                return t_val, f_val, p_val
+                return t_val, f_val, p_val, feat_val
 
     raise ValueError(
         f"No matching row in CSV for sample_id={sample_id}, method={method}, region_id={region_id}"
@@ -169,8 +188,9 @@ def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, reg
         time_raw = args.time
         freq_raw = args.frequency
         phoneme_raw = args.phoneme
+        feature_raw = args.feature if args.feature else "none"
     else:
-        time_raw, freq_raw, phoneme_raw = _lookup_region_metadata(
+        time_raw, freq_raw, phoneme_raw, feature_raw = _lookup_region_metadata(
             csv_path=Path(args.meta_csv),
             sample_id=sample_id,
             method=crop_method_value,
@@ -181,7 +201,13 @@ def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, reg
     frequency_value = _normalize_choice(
         "frequency", freq_raw, FREQUENCY_MAP, "low, mid, high"
     )
-    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "consonant, vowel, none")
+    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "consonant, vowel, silent")
+    feature_value = _normalize_choice(
+        "feature",
+        feature_raw,
+        FEATURE_MAP,
+        "coarticulation, frication, formant bands, harmonic structure, no dominant speech feature",
+    )
 
     return {
         "sample_id": sample_id,
@@ -190,6 +216,7 @@ def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, reg
         "time": time_value,
         "frequency": frequency_value,
         "phoneme": phoneme_value,
+        "feature": feature_value,
     }
 
 
@@ -287,6 +314,7 @@ def build_messages(args: argparse.Namespace, item: dict):
         time=md["time"],
         frequency=md["frequency"],
         phoneme=md["phoneme"],
+        feature=md["feature"],
         crop_method=md["crop_method"],
         method_definition=method_definition,
     )
@@ -329,7 +357,7 @@ def parse_args():
     parser.add_argument(
         "--meta-csv",
         default=DEFAULT_META_CSV,
-        help="CSV path with sample_id/method/region_id/T/F/P.",
+        help="CSV path with sample_id/method/region_id/T/F/P/feature.",
     )
 
     parser.add_argument(
@@ -342,7 +370,7 @@ def parse_args():
         default=None,
         help=(
             "Path to user prompt template txt. Supports placeholders: "
-            "{time}, {frequency}, {phoneme}, {crop_method}, {method_definition}. "
+            "{time}, {frequency}, {phoneme}, {feature}, {crop_method}, {method_definition}. "
             f"Default: {DEFAULT_USER_TEMPLATE_FILE.as_posix()}"
         ),
     )
@@ -351,6 +379,7 @@ def parse_args():
     parser.add_argument("--time", default=None, help="Optional time override.")
     parser.add_argument("--frequency", default=None, help="Optional frequency override.")
     parser.add_argument("--phoneme", default=None, help="Optional phoneme override.")
+    parser.add_argument("--feature", default=None, help="Optional feature override.")
     parser.add_argument("--method-definition", default=None, help="Optional crop method definition override.")
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
@@ -597,6 +626,7 @@ def main():
                     "time": md["time"],
                     "frequency": md["frequency"],
                     "phoneme": md["phoneme"],
+                    "feature": md["feature"],
                     "p1": item["p1"],
                     "p2": item["p2"],
                     "p3": item["p3"],
