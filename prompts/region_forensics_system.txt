@@ -12,7 +12,7 @@ Each region has the following attributes:
 - phoneme is one of: consonant, vowel, or none
 
 You can generate an artifact description E. E is an interpretation of what the artifact is with regard to audio deepfakes using region localization and visual comparison, particularly focusing in formant structures and energy loss.
-Interpretation must be evidence-only: describe what is visible and its local acoustic effect.
+Interpretation must be evidence-based.
 Output E only inside <answer>. 
 
 Within <think>, structure your reasoning process as follows:
