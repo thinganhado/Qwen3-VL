@@ -484,30 +484,50 @@ def _generate_one(model, processor, messages, max_new_tokens, do_sample, tempera
 
 
 def _generate_batch(model, processor, batch_messages, max_new_tokens, do_sample, temperature, top_p):
-    inputs = processor.apply_chat_template(
-        batch_messages,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_dict=True,
-        return_tensors="pt",
-    )
-    inputs = inputs.to(model.device)
+    try:
+        inputs = processor.apply_chat_template(
+            batch_messages,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_dict=True,
+            return_tensors="pt",
+            padding=True,
+        )
+        inputs = inputs.to(model.device)
 
-    do_sample = temperature > 0.0
-    generate_kwargs = {"max_new_tokens": max_new_tokens, "do_sample": do_sample}
-    if do_sample:
-        generate_kwargs["temperature"] = temperature
-        generate_kwargs["top_p"] = top_p
+        do_sample = temperature > 0.0
+        generate_kwargs = {"max_new_tokens": max_new_tokens, "do_sample": do_sample}
+        if do_sample:
+            generate_kwargs["temperature"] = temperature
+            generate_kwargs["top_p"] = top_p
 
-    generated_ids = model.generate(**inputs, **generate_kwargs)
-    generated_ids_trimmed = [
-        out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
-    ]
-    return processor.batch_decode(
-        generated_ids_trimmed,
-        skip_special_tokens=True,
-        clean_up_tokenization_spaces=False,
-    )
+        generated_ids = model.generate(**inputs, **generate_kwargs)
+        generated_ids_trimmed = [
+            out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+        ]
+        return processor.batch_decode(
+            generated_ids_trimmed,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )
+    except Exception as e:
+        # Some mixed-length multimodal batches may still fail in certain transformers versions.
+        # Fallback to item-by-item generation so long runs continue instead of crashing.
+        print(f"[batch-fallback] batch_size={len(batch_messages)} reason={e}")
+        outputs = []
+        for messages in batch_messages:
+            outputs.append(
+                _generate_one(
+                    model=model,
+                    processor=processor,
+                    messages=messages,
+                    max_new_tokens=max_new_tokens,
+                    do_sample=do_sample,
+                    temperature=temperature,
+                    top_p=top_p,
+                )
+            )
+        return outputs
 
 
 def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
