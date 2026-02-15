@@ -10,43 +10,42 @@ Region metadata legend
 - frequency: L = low, M = mid, H = high
 - phoneme: C = consonant, V = vowel, none = no phoneme
 
-Task
-Generate an artifact description E. E must describe the artifact pattern and interpret why it is consistent with deepfake artifacts and its impact on the audio. Output E only inside <answer>.
+WHERE legend (use only these 9 values)
+- Top Left | Top Center | Top Right
+- Center Left | Center Center | Center Right
+- Bottom Left | Bottom Center | Bottom Right
 
-Location convention (use when describing WHERE)
+Interpretation of WHERE (for your own grounding)
 - left/right = earlier/later time
 - bottom/top = lower/higher frequency
 
-Thinking structure (inside <think>, follow exactly this order)
-1. <Metadata_Check>: restate the provided metadata exactly as: time=...; frequency=...; phoneme=...
-2. <Evidence_Claims>: write 2-5 claims (C1..C5). Each claim must be strictly observable and include:
-   WHAT: a concrete visual cue (color/shape/texture/continuity/intensity pattern)
-   WHERE_P2: where it appears in P2 (use the location convention)
-   WHERE_P3: where the corresponding cue appears in P3 (or "absent")
-   DIFF: the difference between P2 and P3 for that cue
-   Also include exactly one brief P1 cue across all claims (either "continues outside crop" or "isolated to crop"). Put this P1 cue in one claim only.
-3. <Artifact_Interpretation>: map ONLY the listed claim IDs to an interpretation of the artifact and its likely audio impact.
-   Include a line: Supported_by: C#, C# listing the claim IDs you used.
-   Do not introduce any new cues beyond those claims.
-   Avoid broad statements about deepfake models; focus on this region.
+Task
+Generate an artifact description E by comparing P2 vs P3 (same crop window).
+
+Write the detailed reasoning inside <Artifact_Interpretation>.
+
+Output the final artifact description E only in <answer>.
 
 Output format (follow exactly)
 <think>
-<Metadata_Check>time=...; frequency=...; phoneme=...</Metadata_Check>
+<Metadata_Check>time={S/NS}; frequency={L/M/H}; phoneme={C/V/none}</Metadata_Check>
+
 <Evidence_Claims>
-C1: WHAT=...; WHERE_P2=...; WHERE_P3=...; DIFF=...
-C2: WHAT=...; WHERE_P2=...; WHERE_P3=...; DIFF=...
-...
+C1: WHERE={...}; WHAT={visual cue}; P2={what is seen in P2 at WHERE}; P3={what is seen in P3 at WHERE}; DIFF={P2 vs P3 difference}
+C2: ...
 </Evidence_Claims>
+
 <Artifact_Interpretation>
-[interpretation grounded ONLY in the claims]
-Supported_by: C1, C2
+[Write interpretation using only the claims above. Every sentence must cite at least one claim ID like (C1) or (C2,C3).]
 </Artifact_Interpretation>
 </think>
-<answer>[E only]</answer>
+
+<answer>[E only, no new claims]</answer>
 
 Constraints
-- All content in <Evidence_Claims> must be strictly observable.
-- <Metadata_Check> must exactly match the provided metadata.
-- <Artifact_Interpretation> must use only claim IDs listed in <Evidence_Claims>.
-- <answer> must contain E only, and must not introduce new cues beyond the claims.
+- <Metadata_Check> must restate the provided metadata exactly.
+- 2-5 evidence claims only.
+- Each claim must use one WHERE from the 9-grid list (same WHERE applies to both P2 and P3).
+- Claims must be strictly observable (no "model failed", no causal mechanism, no measurement like "30% higher", no pixel counts).
+- In <Artifact_Interpretation>, only interpret using the listed claims and inline citations.
+- <answer> must contain E only and must not introduce any new observations beyond what is already in the claims/interpretation.
