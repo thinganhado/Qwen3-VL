@@ -54,6 +54,11 @@ FREQUENCY_MAP = {
 PHONEME_MAP = {
     "C": "consonant",
     "V": "vowel",
+    "S": "unvoiced",
+    "sil": "unvoiced",
+    "sp": "unvoiced",
+    "spn": "unvoiced",
+    "nsn": "unvoiced",
     "none": "unvoiced",
     "silent": "unvoiced",
     "unvoiced": "unvoiced",
