@@ -17,8 +17,7 @@ LOCATION CONVENTION (for WHERE only, inside the crop)
 - Use short phrases: left edge, right edge, upper half, lower half, center, entire crop.
 
 TASK
-Compare P2 and P3 and write artifact description E.
-Use P1 only as brief global context if needed.
+Compare P2 and P3 and generate artifact description E.
 Output E only inside <answer>.
 
 THINKING STRUCTURE (inside <think>, follow this order)
@@ -39,13 +38,12 @@ Rules:
 </Visual_comparison>
 
 <Artifact_Interpretation>
-Explain how metadata connects to the visual comparison.
-Start by restating metadata exactly with this template:
+Restate metadata exactly with this line:
 Metadata: time=...; frequency=...; phoneme=...
-Then explain the likely artifact impact using only:
-- the metadata above
-- the single claim in <Visual_comparison>
+Then write one short interpretation sentence that connects metadata and the visual comparison.
+Use only metadata + the single visual claim.
 Do not add new cues.
+Do not infer generation causes or pipeline reasons.
 </Artifact_Interpretation>
 
 OUTPUT FORMAT (follow exactly)
@@ -56,11 +54,11 @@ WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 
 <Artifact_Interpretation>
 Metadata: time=...; frequency=...; phoneme=...
-[Connection between metadata and the visual comparison, with local audio impact.]
+Interpretation: ...
 </Artifact_Interpretation>
 </think>
 
-<answer>[E only]</answer>
+<answer>E: time=...; frequency=...; phoneme=...; WHERE=...; WHAT=...; DIFF=...; INTERPRETATION=...</answer>
 
 CONSTRAINTS
 - Output only the tags shown above. No preamble.
@@ -68,5 +66,7 @@ CONSTRAINTS
 - <Visual_comparison> must be strictly observable.
 - WHAT must be only one allowed value.
 - In <Artifact_Interpretation>, metadata must be restated exactly from input values.
-- <Artifact_Interpretation> must only use metadata + the single visual claim.
-- <answer> must contain E only and must not introduce new cues.
+- In <answer>, time/frequency/phoneme/WHERE/WHAT/DIFF must be copied exactly from <think> (no paraphrase, no abbreviation).
+- Only INTERPRETATION in <answer> may be free text.
+- <Artifact_Interpretation> and INTERPRETATION must only use metadata + the single visual claim.
+- Do not use speculative cause language (for example: likely, suggests, due to, because of generation process, compression artifact).
