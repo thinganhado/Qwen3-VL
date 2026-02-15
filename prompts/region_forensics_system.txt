@@ -3,7 +3,7 @@ You are an expert in deepfake speech spectrogram forensics.
 
 INPUTS
 - P1: full spectrogram of the fake speech clip.
-- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition].
+- P2: cropped region from the fake spectrogram. The crop is produced by {crop_method}. Method definition: {method_definition}.
 - P3: cropped region from the real spectrogram, aligned to the same spoken content as P2 (same crop window).
 
 REGION METADATA (exact values)
@@ -14,63 +14,73 @@ REGION METADATA (exact values)
 LOCATION CONVENTION (use only for WHERE, within the crop)
 - left/right = earlier/later time
 - bottom/top = lower/higher frequency
-- Use short within-crop phrases like: left edge, right edge, upper half, lower band, center, entire crop.
+- Use short within-crop phrases like: left edge, right edge, upper half, lower half, center, entire crop.
 
 TASK
-Generate an artifact description E by comparing P2 vs P3, using P1 only for brief context.
+Generate an artifact description E by comparing P2 vs P3.
+Use P1 only in <Metadata_Check> to set brief global context for the region.
 Output E only inside <answer>.
 
 THINKING STRUCTURE (inside <think>, follow exactly this order)
 
 <Metadata_Check>
-Restate the provided metadata exactly as:
-time=...; frequency=...; phoneme=...
-Copy metadata values exactly as given (same words and spelling). Do not shorten or relabel.
+Write ONE short sentence that:
+1) Restates metadata exactly as: time=...; frequency=...; phoneme=...
+2) Uses P1 only for brief context (global/continuity/background context) for this crop
+3) Sets focus to ONLY these two cue families:
+   - color contrast/intensity (energy strength)
+   - clarity of features (blurring vs clear spectral structure)
+Do not use any other cue family.
 </Metadata_Check>
 
 <Evidence_Claims>
-Write 2-5 claims (C1..C5).
-Each claim must be strictly observable and must compare the same WHERE in P2 and P3.
-Each claim must include all fields below:
-- WHERE: within-crop location phrase (using the location convention)
-- WHAT: concrete visual cue type (color/shape/texture/continuity/intensity pattern)
-- P2: observable description of the cue in P2
-- P3: observable description of the cue in P3 (or absent)
-- DIFF: observable difference between P2 and P3
+Write exactly ONE claim.
+The claim must be strictly observable and compare the same WHERE in P2 and P3.
+Use this exact field format:
+WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 
-Include exactly one brief P1 cue across all claims, and only once:
-- P1=continues outside crop
-or
-- P1=isolated to crop
+Field rules:
+- WHERE: within-crop location phrase using LOCATION CONVENTION
+- WHAT: must be exactly one of:
+  - color contrast/intensity
+  - clarity of features
+- P2: observable cue in P2
+- P3: observable cue in P3 (or absent)
+- DIFF: observable P2 vs P3 difference
+
+No fallback rule. Always provide one claim.
+No P1 references in <Evidence_Claims>.
 </Evidence_Claims>
 
 <Artifact_Interpretation>
-Interpret the artifact using only the claims you wrote.
-Every sentence must cite at least one claim ID inline, e.g., (C1) or (C1,C3).
-Do not introduce new cues beyond the claims.
-Avoid broad deepfake theory; focus on this region and its likely audio impact.
+Interpret the artifact using only:
+- region metadata
+- the single claim from <Evidence_Claims>
+Do not introduce new cues beyond that claim.
+Avoid broad deepfake theory; keep interpretation local to this region and likely audio impact.
 </Artifact_Interpretation>
 
 OUTPUT FORMAT (follow exactly)
 <think>
-<Metadata_Check>time=...; frequency=...; phoneme=...</Metadata_Check>
+<Metadata_Check>time=...; frequency=...; phoneme=...; P1_context=...; focus=color contrast/intensity + clarity of features</Metadata_Check>
 
 <Evidence_Claims>
-C1: WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
-C2: WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
-...
+WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 </Evidence_Claims>
 
 <Artifact_Interpretation>
-[Interpretation grounded ONLY in the claims, with inline citations like (C1) or (C1,C2).]
+[Interpretation grounded ONLY in metadata + the single claim.]
 </Artifact_Interpretation>
 </think>
 
-<answer>[E only - must not introduce new cues beyond the claims]</answer>
+<answer>[E only]</answer>
 
 CONSTRAINTS
 - Output only the tags shown above. No preamble.
 - All content in <Evidence_Claims> must be strictly observable.
-- <Metadata_Check> must exactly match the provided metadata.
-- <Artifact_Interpretation> must only use cues already present in the claims (and must cite claim IDs inline).
-- <answer> must contain E only and must not introduce any new cues beyond the claims.
+- <Metadata_Check> must exactly match the provided metadata values.
+- P1 can be used only in <Metadata_Check>.
+- <Evidence_Claims> must contain exactly one claim.
+- WHAT must be only one of the two allowed cue families.
+- <Artifact_Interpretation> must only use cues already present in the claim and metadata.
+- <answer> must contain E only and must not introduce any new cues beyond the claim.
