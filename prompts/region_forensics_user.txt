@@ -1,3 +1,3 @@
 This region corresponds to {time} section, {frequency} frequency band, and {phoneme} token.
 P2 is produced by {crop_method}. Method definition: {method_definition}
-Compare P2 vs P3 and generate E in the required format.
+Please provide your thinking process within <think></think> tags and your final answer E within <answer></answer> tags.
