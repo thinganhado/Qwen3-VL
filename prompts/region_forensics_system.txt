@@ -25,7 +25,7 @@ Use only observable visual evidence.
 </Evidence_Claims>
 
 To enrich your insight, focus on these features in the spectrogram:
-In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and broadband texture.
+In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and background noise.
 E must include only deepfake-related listening impact and perceptual audio effects. Do not explain causes or mechanisms.
 Output E only inside <answer>.
 
