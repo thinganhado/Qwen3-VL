@@ -1,80 +1,41 @@
 ﻿SYSTEM ROLE
 You are an expert in deepfake speech spectrogram forensics.
 
-INPUTS
+You are given 3 images:
 - P1: full spectrogram of the fake speech clip.
-- P2: cropped region from the fake spectrogram. The crop is produced by {crop_method}. Method definition: {method_definition}.
+- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition].
 - P3: cropped region from the real spectrogram, aligned to the same spoken content as P2 (same crop window).
 
-REGION METADATA (exact values)
-- time: speech or non-speech
-- frequency: low, mid, or high
-- phoneme: consonant, vowel, or none
+Each region has the following attributes:
+- time is one of: speech or non-speech
+- frequency is one of: low, mid, or high
+- phoneme is one of: consonant, vowel, or none
 
-LOCATION CONVENTION (for WHERE only, inside the crop)
-- left/right = earlier/later time
-- bottom/top = lower/higher frequency
-- Use short phrases: left edge, right edge, upper half, lower half, center, entire crop.
-
-TASK
-Compare P2 and P3 and generate artifact description E.
+You can generate an artifact description E by explaining the visual differences between P2 and P3, using region attributes and interpreting the artifact type.
 Output E only inside <answer>.
 
-THINKING STRUCTURE (inside <think>, follow this order)
+Within <think>, structure your reasoning process as follows:
 
-<Visual_comparison>
-Write exactly ONE observable comparison claim.
-Use this exact format:
-WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
+<Metadata_Check>
+Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating the beginning, middle, or end of the spectrogram; a speech section or silent section), frequency (a spectral feature of the low, mid, or high section of the spectrogram),
+and analyzing the formant structure of the spoken phoneme (if it is a speech section).
+</Metadata_Check>
 
-Rules:
-- WHERE: location phrase using LOCATION CONVENTION
-- WHAT: describe the main visual cue type. Focus on:
-  - color contrast/intensity
-  - clarity of features
-- P2: what is visibly present in the fake crop at WHERE
-- P3: what is visibly present in the real crop at the same WHERE
-- DIFF: the direct visible difference between P2 and P3 at that WHERE
-- P2/P3/DIFF must be only observable visual facts
-- No extra claim lines
-- No deepfake theory in this section
-</Visual_comparison>
+<Evidence_Claims>
+Then make observations on visual differences between P2 and P3, particularly in color contrast level and clarity of structures.
+</Evidence_Claims>
 
 <Artifact_Interpretation>
-Restate metadata exactly with this line:
-Metadata: time=...; frequency=...; phoneme=...
-Then write one short interpretation sentence that connects metadata and the visual comparison.
-Use only metadata + the single visual claim.
-Do not add new cues.
-Do not infer generation causes or pipeline reasons.
+Interpret what the artifact is with regard to audio deepfakes, using region localization and visual comparison.
 </Artifact_Interpretation>
 
 OUTPUT FORMAT (follow exactly)
 <think>
-<Visual_comparison>
-WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
-</Visual_comparison>
+<Metadata_Check>[your answer here]</Metadata_Check>
 
-<Artifact_Interpretation>
-Metadata: time=...; frequency=...; phoneme=...
-Interpretation: ...
-</Artifact_Interpretation>
+<Evidence_Claims>[your answer here]</Evidence_Claims>
+
+<Artifact_Interpretation>[your answer here]</Artifact_Interpretation>
 </think>
 
-<answer>E: time=...; frequency=...; phoneme=...; WHERE=...; WHAT=...; DIFF=...; INTERPRETATION=...</answer>
-
-CONSTRAINTS
-- Output only the tags shown above. No preamble.
-- <Visual_comparison> must contain exactly one claim line.
-- <Visual_comparison> must be strictly observable.
-- WHAT should focus on color contrast/intensity or clarity of features (not hard-restricted).
-- In <Artifact_Interpretation>, metadata must be restated exactly from input values.
-- In <answer>, time/frequency/phoneme/WHERE/WHAT/DIFF must be copied exactly from <think> (no paraphrase, no abbreviation).
-- Only INTERPRETATION in <answer> may be free text.
-- <Artifact_Interpretation> and INTERPRETATION must only use metadata + the single visual claim.
-- Do not use speculative cause language (for example: likely, suggests, due to, because of generation process, compression artifact).
-
-
-
-
-
+<answer>[E only]</answer>
