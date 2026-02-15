@@ -34,29 +34,29 @@ METHOD_DEFINITION_MAP = {
 }
 
 TIME_MAP = {
-    "S": "S",
-    "NS": "NS",
-    "speech": "S",
-    "non_speech": "NS",
-    "non-speech": "NS",
-    "nonspeech": "NS",
+    "S": "speech",
+    "NS": "non-speech",
+    "speech": "speech",
+    "non_speech": "non-speech",
+    "non-speech": "non-speech",
+    "nonspeech": "non-speech",
 }
 
 FREQUENCY_MAP = {
-    "L": "L",
-    "M": "M",
-    "H": "H",
-    "low": "L",
-    "mid": "M",
-    "high": "H",
+    "L": "low",
+    "M": "mid",
+    "H": "high",
+    "low": "low",
+    "mid": "mid",
+    "high": "high",
 }
 
 PHONEME_MAP = {
-    "C": "C",
-    "V": "V",
+    "C": "consonant",
+    "V": "vowel",
     "none": "none",
-    "consonant": "C",
-    "vowel": "V",
+    "consonant": "consonant",
+    "vowel": "vowel",
 }
 
 CROP_METHOD_MAP = {
@@ -177,11 +177,11 @@ def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, reg
             region_id=region_id,
         )
 
-    time_value = _normalize_choice("time", time_raw, TIME_MAP, "S, NS, speech, non_speech")
+    time_value = _normalize_choice("time", time_raw, TIME_MAP, "speech, non-speech")
     frequency_value = _normalize_choice(
-        "frequency", freq_raw, FREQUENCY_MAP, "L, M, H, low, mid, high"
+        "frequency", freq_raw, FREQUENCY_MAP, "low, mid, high"
     )
-    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "C, V, none")
+    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "consonant, vowel, none")
 
     return {
         "sample_id": sample_id,
