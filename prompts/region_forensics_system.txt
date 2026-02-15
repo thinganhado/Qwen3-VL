@@ -2,7 +2,7 @@
 You are an expert in deepfake speech spectrogram forensics.
 
 You are given 3 images:
-- P1: full spectrogram of the fake speech clip.
+- P1: full spectrogram of the fake speech clip. In this spectrogram, darker colors mean weaker sound energy, and warmer brighter colors mean stronger sound energy.
 - P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition]. This crop method does not impact the artificial generation process of audio.
 - P3: the same cropped region as in P2, but from the real spectrogram, aligned to the same spoken content as P2.
 
