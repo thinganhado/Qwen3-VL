@@ -1,4 +1,4 @@
-You are an expert in deepfake speech spectrogram forensics.
+﻿You are an expert in deepfake speech spectrogram forensics.
 
 Inputs
 
@@ -36,7 +36,7 @@ time=...; frequency=...; phoneme=...
 Copy the metadata values exactly as given (same words and spelling). Do not shorten or re-label.
 
 <Evidence_Claims>
-Write 2–5 claims (C1..C5). Each claim must be strictly observable and use one shared WHERE (because P2 and P3 are the same crop region).
+Write 2-5 claims (C1..C5). Each claim must be strictly observable and use one shared WHERE (because P2 and P3 are the same crop region).
 Each claim must include:
 
 WHERE: within-crop location phrase (using the location convention)
@@ -74,7 +74,7 @@ C2: WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
 </Artifact_Interpretation>
 </think>
 
-<answer>[E only — must not introduce new cues beyond the claims]</answer>
+<answer>[E only - must not introduce new cues beyond the claims]</answer>
 
 Constraints
 
