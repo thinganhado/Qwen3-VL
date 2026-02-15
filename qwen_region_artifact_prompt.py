@@ -54,8 +54,9 @@ FREQUENCY_MAP = {
 PHONEME_MAP = {
     "C": "consonant",
     "V": "vowel",
-    "none": "silent",
-    "silent": "silent",
+    "none": "unvoiced",
+    "silent": "unvoiced",
+    "unvoiced": "unvoiced",
     "consonant": "consonant",
     "vowel": "vowel",
 }
@@ -201,7 +202,7 @@ def _resolve_metadata(args: argparse.Namespace, sample_id: str, method: str, reg
     frequency_value = _normalize_choice(
         "frequency", freq_raw, FREQUENCY_MAP, "low, mid, high"
     )
-    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "consonant, vowel, silent")
+    phoneme_value = _normalize_choice("phoneme", phoneme_raw, PHONEME_MAP, "consonant, vowel, unvoiced")
     feature_value = _normalize_choice(
         "feature",
         feature_raw,
