@@ -11,7 +11,7 @@ Each region has the following attributes:
 - frequency is one of: low, mid, or high
 - phoneme is one of: consonant, vowel, or none
 
-You can generate an artifact description E by explaining the visual differences between P2 and P3, using region attributes and interpreting the artifact type.
+You can generate an artifact description E. E is an interpretation of what the artifact is with regard to audio deepfakes using region localization and visual comparison, particularly focusing in formant structures and energy loss.
 Interpretation must be evidence-only: describe what is visible and its local acoustic effect.
 Output E only inside <answer>. 
 
@@ -26,18 +26,12 @@ Then make observations on visual differences between P2 and P3, particularly in 
 If it is within the speech section, analyze the formant structure of the spoken token.
 </Evidence_Claims>
 
-<Artifact_Interpretation>
-Interpret what the artifact is with regard to audio deepfakes using region localization and visual comparison, particularly focusing in formant structures and energy loss.
-</Artifact_Interpretation>
-
 OUTPUT FORMAT (follow exactly)
+
 <think>
 <Metadata_Check>This region is located at the [speech/non-speech] section and [low/mid/high] frequency band.
 The spoken token is [consonant/vowel/none].</Metadata_Check>
-
 <Evidence_Claims>[your answer here]</Evidence_Claims>
-
-<Artifact_Interpretation>[your answer here]</Artifact_Interpretation>
 </think>
 
 <answer>[E only]</answer>
