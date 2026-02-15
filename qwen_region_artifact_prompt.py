@@ -364,6 +364,12 @@ def parse_args():
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Per-sample output root.")
     parser.add_argument("--output-file", default=None, help="Single-item output file.")
     parser.add_argument("--output-jsonl", default=None, help="Optional flat batch output jsonl file.")
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        default=False,
+        help="Regenerate outputs even if per-sample region records already exist.",
+    )
     parser.add_argument("--print-messages", action="store_true", help="Print built messages before generation.")
     return parser.parse_args()
 
@@ -440,7 +446,14 @@ def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
         sample_dir = output_dir / sample_id
         sample_dir.mkdir(parents=True, exist_ok=True)
 
-        records_sorted = sorted(records, key=lambda x: x["region_id"])
+        # Keep the latest record per region_id (newly generated records override older ones).
+        by_region = {}
+        for rec in records:
+            rid = rec.get("region_id")
+            if rid is None:
+                continue
+            by_region[int(rid)] = rec
+        records_sorted = [by_region[rid] for rid in sorted(by_region.keys())]
         payload = {
             "sample_id": sample_id,
             "num_regions": len(records_sorted),
@@ -451,9 +464,58 @@ def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
         out_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _load_existing_records_by_sample(output_dir: Path) -> dict:
+    records_by_sample = defaultdict(list)
+    if not output_dir.exists():
+        return records_by_sample
+
+    for p in output_dir.glob("*/json"):
+        try:
+            obj = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        sample_id = obj.get("sample_id")
+        regions = obj.get("regions")
+        if not sample_id or not isinstance(regions, list):
+            continue
+        for rec in regions:
+            if isinstance(rec, dict) and "region_id" in rec:
+                records_by_sample[str(sample_id)].append(rec)
+    return records_by_sample
+
+
+def _existing_done_keys(records_by_sample: dict) -> set:
+    done = set()
+    for sample_id, records in records_by_sample.items():
+        for rec in records:
+            rid = rec.get("region_id")
+            if rid is None:
+                continue
+            done.add((str(sample_id), int(rid)))
+    return done
+
+
 def main():
     args = parse_args()
     items = _discover_triplets(args)
+    output_root = Path(args.output_dir).expanduser().resolve()
+
+    # Resume behavior: load existing outputs and skip completed regions unless --overwrite.
+    existing_records = defaultdict(list)
+    if not args.overwrite:
+        existing_records = _load_existing_records_by_sample(output_root)
+        done_keys = _existing_done_keys(existing_records)
+        before = len(items)
+        items = [
+            it for it in items
+            if (str(it["sample_id"]), int(it["region_id"])) not in done_keys
+        ]
+        skipped = before - len(items)
+        if skipped > 0:
+            print(f"[resume] skipped_existing_regions={skipped}")
+        if len(items) == 0:
+            print("[resume] no pending regions; nothing to generate.")
+            return
 
     if args.num_shards < 1:
         raise ValueError("--num-shards must be >= 1")
@@ -484,9 +546,13 @@ def main():
     if args.output_jsonl:
         out_path = Path(args.output_jsonl).expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        jsonl_fp = out_path.open("w", encoding="utf-8")
+        mode = "w" if args.overwrite else "a"
+        jsonl_fp = out_path.open(mode, encoding="utf-8")
 
     records_by_sample = defaultdict(list)
+    if not args.overwrite:
+        for sid, recs in existing_records.items():
+            records_by_sample[sid].extend(recs)
 
     try:
         for batch_start in range(0, len(items), args.batch_size):
@@ -553,7 +619,6 @@ def main():
         if jsonl_fp is not None:
             jsonl_fp.close()
 
-    output_root = Path(args.output_dir).expanduser().resolve()
     _write_sample_grouped_json(output_root, records_by_sample)
 
 

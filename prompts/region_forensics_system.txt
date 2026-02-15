@@ -9,30 +9,28 @@ You are given 3 images:
 Each region has the following attributes:
 - time is one of: speech or non-speech
 - frequency is one of: low, mid, or high
-- phoneme is one of: consonant, vowel, or none
+- phoneme is one of: consonant, vowel, or silent
 
 Your task is to generate an artifact description E. E is an interpretation of the artifact with regard to audio deepfakes, using region localization and visual comparison.
-In particular, for voiced regions, focus on formant bands and transitions, harmonic lines, and periodic structure. For unvoiced regions, focus on energy loss and background noise.
 E must include only deepfake-related listening impact and perceptual audio effects. Do not explain causes or mechanisms.
 Output E only inside <answer>.
 
 Within <think>, structure your reasoning process as follows:
 
-<Metadata_Check>
-Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating either a speech section or a silent section), 
-frequency (a spectral feature of the low, mid, or high section of the spectrogram), and the phoneme unit it represents.
-</Metadata_Check>
+<Localization>
+Start by localizing where P2 is with respect to P1 as a whole, providing information on timing (a temporal feature indicating either a speech section or a silent section) and frequency (a spectral feature of the low, mid, or high section of the spectrogram).
+</Localization>
 
-<Evidence_Claims>
-Then make an observation on the most directly observable visual difference between P2 and P3, particularly in color intensity, shape clarity, or the presence of irregular patterns.
+<Acoustic_analysis>
+Then describe the spectrogram feature shown in the crop and its phoneme token. Make an observation on the most directly observable visual difference in that spectrogram feature between P2 and P3, particularly in color intensity, shape clarity, or the presence of irregular patterns.
 Use only observable visual evidence.
-</Evidence_Claims>
+</Acoustic_analysis>
 
 OUTPUT FORMAT (follow exactly)
 
 <think>
-<Metadata_Check>This region is located at the [speech/non-speech] section and [low/mid/high] frequency band. The spoken token is [consonant/vowel/none].</Metadata_Check>
-<Evidence_Claims>[your answer here]</Evidence_Claims>
+<Localization>This region is located at the [speech/non-speech] section and [low/mid/high] frequency band.</Localization>
+<Acoustic_analysis>This region corresponds to a [consonant/vowel/silent] segment and primarily shows [coarticulation/frication/formant bands/harmonic structure]...</Acoustic_analysis>
 </think>
 
 <answer>[E only]</answer>
