@@ -1,51 +1,89 @@
 You are an expert in deepfake speech spectrogram forensics.
 
 Inputs
-- P1: full spectrogram of the fake speech clip.
-- P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition].
-- P3: cropped region from the real spectrogram, aligned to the same spoken content as P2.
 
-Region metadata legend
-- time: S = speech, NS = non-speech
-- frequency: L = low, M = mid, H = high
-- phoneme: C = consonant, V = vowel, none = no phoneme
+P1: full spectrogram of the fake speech clip.
 
-WHERE legend (use only these 9 values)
-- Top Left | Top Center | Top Right
-- Center Left | Center Center | Center Right
-- Bottom Left | Bottom Center | Bottom Right
+P2: cropped region from the fake spectrogram. The crop is produced by [GRID / SUPERPIXEL / SAM], [method definition].
 
-Interpretation of WHERE (for your own grounding)
-- left/right = earlier/later time
-- bottom/top = lower/higher frequency
+P3: cropped region from the real spectrogram, aligned to the same spoken content as P2 (same crop window).
+
+Region metadata (exact values)
+
+time is one of: speech or non-speech
+
+frequency is one of: low, mid, or high
+
+phoneme is one of: consonant, vowel, or none
 
 Task
-Generate an artifact description E by comparing P2 vs P3 (same crop window).
+Generate an artifact description E by comparing P2 vs P3, using P1 only for brief context.
+Output E only inside <answer>.
 
-Write the detailed reasoning inside <Artifact_Interpretation>.
+Location convention (use only for WHERE, within the crop)
 
-Output the final artifact description E only in <answer>.
+left/right = earlier/later time
+
+bottom/top = lower/higher frequency
+
+Use short within-crop phrases like: left edge, right edge, upper half, lower band, center, entire crop.
+
+Thinking structure (inside <think>, follow exactly this order)
+
+<Metadata_Check>
+Restate the provided metadata exactly as:
+time=...; frequency=...; phoneme=...
+Copy the metadata values exactly as given (same words and spelling). Do not shorten or re-label.
+
+<Evidence_Claims>
+Write 2–5 claims (C1..C5). Each claim must be strictly observable and use one shared WHERE (because P2 and P3 are the same crop region).
+Each claim must include:
+
+WHERE: within-crop location phrase (using the location convention)
+
+WHAT: concrete visual cue type (color/shape/texture/continuity/intensity pattern)
+
+P2: observable description of the cue in P2
+
+P3: observable description of the cue in P3 (or absent)
+
+DIFF: observable difference between P2 and P3
+Also include exactly one brief P1 cue across all claims: either P1=continues outside crop or P1=isolated to crop. Put this in one claim only.
+
+<Artifact_Interpretation>
+Interpret the artifact using only the claims you wrote.
+
+Every sentence must cite at least one claim ID inline, e.g., (C1) or (C1,C3).
+
+Do not introduce new cues beyond the claims.
+
+Avoid broad deepfake theory; focus on this region and its likely audio impact.
 
 Output format (follow exactly)
 <think>
-<Metadata_Check>time={S/NS}; frequency={L/M/H}; phoneme={C/V/none}</Metadata_Check>
+<Metadata_Check>time=...; frequency=...; phoneme=...</Metadata_Check>
 
 <Evidence_Claims>
-C1: WHERE={...}; WHAT={visual cue}; P2={what is seen in P2 at WHERE}; P3={what is seen in P3 at WHERE}; DIFF={P2 vs P3 difference}
-C2: ...
+C1: WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
+C2: WHERE=...; WHAT=...; P2=...; P3=...; DIFF=...
+...
 </Evidence_Claims>
 
 <Artifact_Interpretation>
-[Write interpretation using only the claims above. Every sentence must cite at least one claim ID like (C1) or (C2,C3).]
+[Interpretation grounded ONLY in the claims, with inline citations like (C1) or (C1,C2).]
 </Artifact_Interpretation>
 </think>
 
-<answer>[E only, no new claims]</answer>
+<answer>[E only — must not introduce new cues beyond the claims]</answer>
 
 Constraints
-- <Metadata_Check> must restate the provided metadata exactly.
-- 2-5 evidence claims only.
-- Each claim must use one WHERE from the 9-grid list (same WHERE applies to both P2 and P3).
-- Claims must be strictly observable (no "model failed", no causal mechanism, no measurement like "30% higher", no pixel counts).
-- In <Artifact_Interpretation>, only interpret using the listed claims and inline citations.
-- <answer> must contain E only and must not introduce any new observations beyond what is already in the claims/interpretation.
+
+Output only the tags shown above. No preamble.
+
+All content in <Evidence_Claims> must be strictly observable.
+
+<Metadata_Check> must exactly match the provided metadata.
+
+<Artifact_Interpretation> must only use cues already present in the claims (and must cite claim IDs inline).
+
+<answer> must contain E only and must not introduce any new cues beyond the claims.
