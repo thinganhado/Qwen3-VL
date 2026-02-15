@@ -27,7 +27,7 @@ If it is within the speech section, analyze the formant structure of the spoken 
 </Evidence_Claims>
 
 <Artifact_Interpretation>
-Interpret what the artifact is with regard to audio deepfakes, using region localization and visual comparison.
+Interpret what the artifact is with regard to audio deepfakes using region localization and visual comparison, particularly focusing in formant structures and energy loss.
 </Artifact_Interpretation>
 
 OUTPUT FORMAT (follow exactly)
