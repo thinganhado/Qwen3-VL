@@ -530,9 +530,10 @@ def _generate_batch(model, processor, batch_messages, max_new_tokens, do_sample,
         return outputs
 
 
-def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
-    for sample_id, records in records_by_sample.items():
-        sample_dir = output_dir / sample_id
+def _write_sample_grouped_json(output_dir: Path, records_by_bucket: dict):
+    for (method, sample_id), records in records_by_bucket.items():
+        method_dir = output_dir / str(method).lower()
+        sample_dir = method_dir / sample_id
         sample_dir.mkdir(parents=True, exist_ok=True)
 
         # Keep the latest record per region_id (newly generated records override older ones).
@@ -554,11 +555,31 @@ def _write_sample_grouped_json(output_dir: Path, records_by_sample: dict):
 
 
 def _load_existing_records_by_sample(output_dir: Path) -> dict:
-    records_by_sample = defaultdict(list)
+    records_by_bucket = defaultdict(list)
     if not output_dir.exists():
-        return records_by_sample
+        return records_by_bucket
 
+    # New layout: <output_dir>/<method>/<sample_id>/json
+    for p in output_dir.glob("*/*/json"):
+        try:
+            obj = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        sample_id = obj.get("sample_id")
+        regions = obj.get("regions")
+        method = p.parent.parent.name
+        if not sample_id or not isinstance(regions, list):
+            continue
+        for rec in regions:
+            if isinstance(rec, dict) and "region_id" in rec:
+                rec.setdefault("crop_method", method.upper())
+                records_by_bucket[(str(method).upper(), str(sample_id))].append(rec)
+
+    # Backward compatibility: legacy layout <output_dir>/<sample_id>/json
     for p in output_dir.glob("*/json"):
+        # Skip new-layout files already handled above.
+        if p.parent.parent != output_dir:
+            continue
         try:
             obj = json.loads(p.read_text(encoding="utf-8"))
         except Exception:
@@ -569,18 +590,19 @@ def _load_existing_records_by_sample(output_dir: Path) -> dict:
             continue
         for rec in regions:
             if isinstance(rec, dict) and "region_id" in rec:
-                records_by_sample[str(sample_id)].append(rec)
-    return records_by_sample
+                method = str(rec.get("crop_method", "UNKNOWN")).upper()
+                records_by_bucket[(method, str(sample_id))].append(rec)
+    return records_by_bucket
 
 
-def _existing_done_keys(records_by_sample: dict) -> set:
+def _existing_done_keys(records_by_bucket: dict) -> set:
     done = set()
-    for sample_id, records in records_by_sample.items():
+    for (method, sample_id), records in records_by_bucket.items():
         for rec in records:
             rid = rec.get("region_id")
             if rid is None:
                 continue
-            done.add((str(sample_id), int(rid)))
+            done.add((str(sample_id), int(rid), str(method).upper()))
     return done
 
 
@@ -597,7 +619,7 @@ def main():
         before = len(items)
         items = [
             it for it in items
-            if (str(it["sample_id"]), int(it["region_id"])) not in done_keys
+            if (str(it["sample_id"]), int(it["region_id"]), str(it["crop_method"]).upper()) not in done_keys
         ]
         skipped = before - len(items)
         if skipped > 0:
@@ -638,10 +660,10 @@ def main():
         mode = "w" if args.overwrite else "a"
         jsonl_fp = out_path.open(mode, encoding="utf-8")
 
-    records_by_sample = defaultdict(list)
+    records_by_bucket = defaultdict(list)
     if not args.overwrite:
-        for sid, recs in existing_records.items():
-            records_by_sample[sid].extend(recs)
+        for bucket, recs in existing_records.items():
+            records_by_bucket[bucket].extend(recs)
 
     try:
         for batch_start in range(0, len(items), args.batch_size):
@@ -693,7 +715,8 @@ def main():
                     "response": output_text,
                 }
 
-                records_by_sample[record["sample_id"]].append(record)
+                bucket = (str(record["crop_method"]).upper(), record["sample_id"])
+                records_by_bucket[bucket].append(record)
 
                 print(f"[{idx}/{len(items)}] {record['sample_id']}__r{record['region_id']}")
                 print(output_text)
@@ -709,7 +732,7 @@ def main():
         if jsonl_fp is not None:
             jsonl_fp.close()
 
-    _write_sample_grouped_json(output_root, records_by_sample)
+    _write_sample_grouped_json(output_root, records_by_bucket)
 
 
 if __name__ == "__main__":
