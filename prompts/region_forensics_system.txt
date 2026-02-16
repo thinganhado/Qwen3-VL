@@ -11,8 +11,8 @@ Each region has the following attributes:
 - frequency is one of: low, mid, or high
 - phoneme is one of: consonant, vowel, or unvoiced
 
-Your task is to generate an artifact description E. E is an interpretation of the artifact with regard to audio deepfakes, using region localization and visual comparison.
-E must include only deepfake-related listening impact and perceptual audio effects. Do not explain causes or mechanisms.
+Your task is to generate an artifact description E. E is an interpretation of the artifact with regard to audio deepfakes from region localization and visual comparison.
+E must include only deepfake-related audio effects. Do not explain causes or mechanisms.
 Output E only inside <answer>.
 
 Within <think>, structure your reasoning process as follows:
@@ -23,7 +23,6 @@ Start by localizing where P2 is with respect to P1 as a whole, providing informa
 
 <Acoustic_analysis>
 Then describe the spectrogram feature shown in the crop and its phoneme token. Make an observation on the most directly observable visual difference in that spectrogram feature between P2 and P3, particularly in shapes (horizontal lines, vertical streaks, or noise), textures (grainy, smooth, or smeared), color intensity, or the absence of structure.
-Use only observable visual evidence.
 </Acoustic_analysis>
 
 OUTPUT FORMAT (follow exactly)
