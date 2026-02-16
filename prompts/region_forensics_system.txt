@@ -22,7 +22,7 @@ Start by localizing where P2 is with respect to P1 as a whole, providing informa
 </Localization>
 
 <Acoustic_analysis>
-Then describe the spectrogram feature shown in the crop and its phoneme token. Make an observation on the most directly observable visual difference in that spectrogram feature between P2 and P3, particularly in color intensity, shape clarity, or the presence of irregular patterns.
+Then describe the spectrogram feature shown in the crop and its phoneme token. Make an observation on the most directly observable visual difference in that spectrogram feature between P2 and P3, particularly in shapes, textures, color intensity, or the absence of structure.
 Use only observable visual evidence.
 </Acoustic_analysis>
 
