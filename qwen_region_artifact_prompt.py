@@ -16,8 +16,8 @@ DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
 
 DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype_feature.csv"
 DEFAULT_P1_ROOT = "/scratch3/che489/Ha/interspeech/localization/Ms_region_outputs"
-DEFAULT_P2_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_top3"
-DEFAULT_P3_ROOT = "/scratch3/che489/Ha/interspeech/localization/region_crops_real"
+DEFAULT_P2_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/fake_crops"
+DEFAULT_P3_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/real_crops"
 DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/localization/qwen3_vlm"
 DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking"
 
