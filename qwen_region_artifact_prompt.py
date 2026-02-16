@@ -7,6 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import torch
+from PIL import Image
 from transformers import AutoModelForImageTextToText, AutoProcessor
 
 
@@ -112,6 +113,17 @@ def _normalize_image_ref(value: str) -> str:
         raise FileNotFoundError(f"Image path does not exist: {p}")
     return str(p)
 
+
+
+
+def _prepare_p1_image_for_prompt(p1_ref: str):
+    if p1_ref.startswith(("http://", "https://", "data:")):
+        return p1_ref
+
+    p = Path(p1_ref)
+    with Image.open(p) as img:
+        # Flip P1 vertically so time runs bottom-to-top before inference.
+        return img.transpose(Image.FLIP_TOP_BOTTOM).copy()
 
 def _load_text_file(path: Path, field_name: str) -> str:
     resolved = path.expanduser().resolve()
@@ -335,7 +347,7 @@ def _discover_triplets(args: argparse.Namespace):
 
 
 def build_messages(args: argparse.Namespace, item: dict):
-    p1 = _normalize_image_ref(item["p1"])
+    p1 = _prepare_p1_image_for_prompt(_normalize_image_ref(item["p1"]))
     p2 = _normalize_image_ref(item["p2"])
     p3 = _normalize_image_ref(item["p3"])
 
