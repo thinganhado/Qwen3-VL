@@ -15,7 +15,14 @@ DEFAULT_SYSTEM_FILE = THIS_DIR / "baseline_prompts" / "baseline_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "baseline_prompts" / "baseline_user.txt"
 
 DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_gt.csv"
-DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-235B-A22B-Instruct/"
+DEFAULT_META_JSON = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_val.json"
+
+DEFAULT_MODEL_PATHS = {
+    "qwen25_3b_stage1_merged": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_merged_Qwen2.5-VL-3B-Instruct",
+    "qwen25_7b_stage1_merged": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_merged_Qwen2.5-VL-7B-Instruct",
+    "qwen3_8b_stage1_merged": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_merged_Qwen3-VL-8B-Instruct",
+}
+DEFAULT_MODEL_KEY = "qwen3_8b_stage1_merged"
 DEFAULT_OUTPUT_DIR = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_strongVLM/"
 
 
@@ -34,7 +41,89 @@ def _resolve_user_template(args: argparse.Namespace) -> str:
     return _load_text_file(Path(args.user_template_file) if args.user_template_file else DEFAULT_USER_TEMPLATE_FILE, "--user-template-file")
 
 
-def _discover_items(args: argparse.Namespace):
+def _resolve_model_id(args: argparse.Namespace) -> str:
+    if args.model_id:
+        return args.model_id
+    return DEFAULT_MODEL_PATHS[args.model_key]
+
+
+def _extract_first_image_field(example: dict) -> str:
+    image = example.get("image")
+    if isinstance(image, str):
+        return image
+    if isinstance(image, list) and image:
+        return str(image[0])
+    return ""
+
+
+def _extract_gt_regions_from_example(example: dict) -> str:
+    # Prefer explicit regions field when present.
+    if "regions" in example:
+        return str(example.get("regions", "")).strip()
+
+    conversations = example.get("conversations", [])
+    if not isinstance(conversations, list):
+        return ""
+
+    for turn in conversations:
+        if not isinstance(turn, dict):
+            continue
+        if str(turn.get("from", "")).strip().lower() == "gpt":
+            return str(turn.get("value", "")).strip()
+
+    return ""
+
+
+def _discover_items_from_json(args: argparse.Namespace):
+    meta_json = Path(args.meta_json).expanduser().resolve()
+    if not meta_json.exists():
+        raise FileNotFoundError(f"--meta-json does not exist: {meta_json}")
+
+    try:
+        data = json.loads(meta_json.read_text(encoding="utf-8"))
+    except Exception as e:
+        raise ValueError(f"Failed to parse --meta-json: {meta_json}\n{e}") from e
+
+    if not isinstance(data, list):
+        raise ValueError("--meta-json should be a JSON list of examples.")
+
+    items = []
+    for idx, ex in enumerate(data):
+        if not isinstance(ex, dict):
+            continue
+
+        img_path_raw = _extract_first_image_field(ex)
+        if not img_path_raw:
+            continue
+
+        img_path = Path(img_path_raw).expanduser().resolve()
+        if not img_path.exists():
+            continue
+
+        sample_id = str(ex.get("id", "")).strip() or img_path.stem
+        if args.sample_id_glob and not fnmatch(sample_id, args.sample_id_glob):
+            continue
+
+        gt_regions = _extract_gt_regions_from_example(ex)
+        items.append(
+            {
+                "sample_id": sample_id,
+                "img_path": str(img_path),
+                "gt_regions": gt_regions,
+                "source": f"json:{meta_json.name}",
+            }
+        )
+
+    if args.max_items is not None:
+        items = items[: args.max_items]
+
+    if not items:
+        raise ValueError("No valid items discovered from --meta-json.")
+
+    return sorted(items, key=lambda x: x["sample_id"])
+
+
+def _discover_items_from_csv(args: argparse.Namespace):
     meta_csv = Path(args.meta_csv).expanduser().resolve()
     if not meta_csv.exists():
         raise FileNotFoundError(f"--meta-csv does not exist: {meta_csv}")
@@ -59,6 +148,7 @@ def _discover_items(args: argparse.Namespace):
                     "sample_id": sample_id,
                     "img_path": str(img_path),
                     "gt_regions": gt_regions,
+                    "source": f"csv:{meta_csv.name}",
                 }
             )
 
@@ -66,9 +156,21 @@ def _discover_items(args: argparse.Namespace):
         items = items[: args.max_items]
 
     if not items:
-        raise ValueError("No valid items discovered from stage1_gt.csv.")
+        raise ValueError("No valid items discovered from --meta-csv.")
 
     return sorted(items, key=lambda x: x["sample_id"])
+
+
+def _discover_items(args: argparse.Namespace):
+    if args.meta_json:
+        meta_json = Path(args.meta_json).expanduser().resolve()
+        if meta_json.exists():
+            return _discover_items_from_json(args)
+        if args.require_meta_json:
+            raise FileNotFoundError(f"--meta-json does not exist: {meta_json}")
+        print(f"[warn] --meta-json not found, falling back to --meta-csv: {meta_json}")
+
+    return _discover_items_from_csv(args)
 
 
 def _build_messages(args: argparse.Namespace, item: dict):
@@ -143,13 +245,22 @@ def _load_existing_sample_ids(output_jsonl: Path) -> set:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run baseline Qwen-VL prompt on stage1_gt.csv image rows.")
-    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path.")
-    parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path containing img_path and regions columns.")
+    parser = argparse.ArgumentParser(description="Run baseline Qwen-VL prompt on test split (JSON or CSV).")
+    parser.add_argument(
+        "--model-key",
+        choices=sorted(DEFAULT_MODEL_PATHS.keys()),
+        default=DEFAULT_MODEL_KEY,
+        help="Named merged model option. Ignored when --model-id is explicitly set.",
+    )
+    parser.add_argument("--model-id", default=None, help="HF model id or local model path (overrides --model-key).")
+
+    parser.add_argument("--meta-json", default=DEFAULT_META_JSON, help="JSON path for test split (preferred).")
+    parser.add_argument("--require-meta-json", action="store_true", help="Fail if --meta-json is missing.")
+    parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="Fallback CSV path containing img_path and regions columns.")
     parser.add_argument(
         "--sample-id-glob",
-        default="*_LA_D_*",
-        help="Only include rows whose img_path stem matches this glob. Use empty string to disable.",
+        default="",
+        help="Only include rows whose sample_id/stem matches this glob. Empty means no filtering.",
     )
 
     parser.add_argument("--system-file", default=None, help=f"Path to system prompt txt. Default: {DEFAULT_SYSTEM_FILE.as_posix()}")
@@ -175,6 +286,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    args.model_id = _resolve_model_id(args)
+
     items = _discover_items(args)
 
     if args.num_shards < 1:
@@ -204,6 +317,9 @@ def main():
         if not items:
             print("[resume] no pending samples; nothing to generate.")
             return
+
+    print(f"[model] {args.model_id}")
+    print(f"[items] {len(items)}")
 
     torch_dtype = _resolve_torch_dtype(args.dtype)
     model = AutoModelForImageTextToText.from_pretrained(
@@ -235,6 +351,8 @@ def main():
                 "sample_id": item["sample_id"],
                 "img_path": item["img_path"],
                 "gt_regions": item["gt_regions"],
+                "source": item.get("source", ""),
+                "model_id": args.model_id,
                 "response": output_text,
             }
 
