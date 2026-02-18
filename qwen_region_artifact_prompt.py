@@ -1,7 +1,8 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 import argparse
 import csv
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -365,7 +366,7 @@ def main():
         out_path = Path(args.output_jsonl).expanduser().resolve()
         out_path.parent.mkdir(parents=True, exist_ok=True)
         mode = "w" if args.overwrite else "a"
-        jsonl_fp = out_path.open(mode, encoding="utf-8")
+        jsonl_fp = out_path.open(mode, encoding="utf-8", buffering=1)
 
     records_by_bucket = defaultdict(list)
     if not args.overwrite:
@@ -425,6 +426,11 @@ def main():
 
                 if jsonl_fp is not None:
                     jsonl_fp.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    jsonl_fp.flush()
+                    try:
+                        os.fsync(jsonl_fp.fileno())
+                    except OSError:
+                        pass
 
                 if len(items) == 1 and args.output_file:
                     out_file = Path(args.output_file).expanduser().resolve()
@@ -439,3 +445,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
