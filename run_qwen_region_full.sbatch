@@ -35,13 +35,12 @@ cd "${SCRIPT_DIR}"
 
 # Defaults mirror qwen_region_artifact_prompt.py; override via env vars if needed.
 MODEL_ID="${MODEL_ID:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking}"
-P1_ROOT="${P1_ROOT:-/scratch3/che489/Ha/interspeech/localization/Ms_region_outputs}"
-P2_ROOT="${P2_ROOT:-/scratch3/che489/Ha/interspeech/localization/region_crops_top3}"
-P3_ROOT="${P3_ROOT:-/scratch3/che489/Ha/interspeech/localization/region_crops_real}"
-META_CSV="${META_CSV:-/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype.csv}"
+META_CSV="${META_CSV:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/region_phone_table_grid.csv}"
+SPEC_ROOT="${SPEC_ROOT:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid/}"
+MFA_JSON_ROOT="${MFA_JSON_ROOT:-/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/}"
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
-OUTPUT_BASE_DIR="${OUTPUT_BASE_DIR:-/scratch3/che489/Ha/interspeech/localization/qwen3_vlm}"
+OUTPUT_BASE_DIR="${OUTPUT_BASE_DIR:-/scratch3/che489/Ha/interspeech/VLM/Qwen3-VL/outputs}"
 SHARD_COUNT="${SHARD_COUNT:-1}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
@@ -57,17 +56,18 @@ BATCH_SIZE="${BATCH_SIZE:-1}"
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
-echo "[run] P2_ROOT=${P2_ROOT}"
+echo "[run] META_CSV=${META_CSV}"
+echo "[run] SPEC_ROOT=${SPEC_ROOT}"
+echo "[run] MFA_JSON_ROOT=${MFA_JSON_ROOT}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
 
 python "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --model-id "${MODEL_ID}" \
-  --p1-root "${P1_ROOT}" \
-  --p2-root "${P2_ROOT}" \
-  --p3-root "${P3_ROOT}" \
   --meta-csv "${META_CSV}" \
+  --spec-root "${SPEC_ROOT}" \
+  --mfa-json-root "${MFA_JSON_ROOT}" \
   --system-file "${SYSTEM_FILE}" \
   --user-template-file "${USER_TEMPLATE_FILE}" \
   --dtype "${DTYPE}" \

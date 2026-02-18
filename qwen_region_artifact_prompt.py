@@ -133,7 +133,6 @@ def build_messages(args: argparse.Namespace, item: dict):
                 "ID": item["region_id"],
                 "id": item["region_id"],
                 "region_id": item["region_id"],
-                "ID1": item["region_id"],
                 "sample_id": item["sample_id"],
                 "sample_id_raw": item.get("sample_id_raw", item["sample_id"]),
                 "transcript": transcript_text,
