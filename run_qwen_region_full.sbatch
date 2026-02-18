@@ -53,6 +53,7 @@ fi
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-600}"
 DTYPE="${DTYPE:-auto}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
+OVERWRITE="${OVERWRITE:-0}"
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
@@ -62,8 +63,9 @@ echo "[run] MFA_JSON_ROOT=${MFA_JSON_ROOT}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
+echo "[run] OVERWRITE=${OVERWRITE}"
 
-python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
+CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --model-id "${MODEL_ID}" \
   --meta-csv "${META_CSV}" \
   --spec-root "${SPEC_ROOT}" \
@@ -76,7 +78,12 @@ python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --num-shards "${SHARD_COUNT}" \
   --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
-  --output-jsonl "${OUTPUT_JSONL}" \
-  --overwrite \
-  "$@"
+  --output-jsonl "${OUTPUT_JSONL}")
 
+if [[ "${OVERWRITE}" == "1" ]]; then
+  CMD+=(--overwrite)
+fi
+
+CMD+=("$@")
+echo "[run] ${CMD[*]}"
+"${CMD[@]}"

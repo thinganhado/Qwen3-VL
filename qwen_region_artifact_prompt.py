@@ -318,15 +318,74 @@ def _existing_done_keys(records_by_bucket: dict) -> set:
     return done
 
 
+def _load_existing_records_from_jsonl(jsonl_path: Path) -> dict:
+    records_by_bucket = defaultdict(list)
+    if not jsonl_path.exists():
+        return records_by_bucket
+
+    with jsonl_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(rec, dict):
+                continue
+            sample_id = str(rec.get("sample_id", "")).strip()
+            rid = rec.get("region_id")
+            if not sample_id or rid is None:
+                continue
+            try:
+                rid = int(rid)
+            except Exception:
+                continue
+            method = str(rec.get("crop_method", "GRID")).upper()
+            rec["sample_id"] = sample_id
+            rec["region_id"] = rid
+            rec["crop_method"] = method
+            records_by_bucket[(method, sample_id)].append(rec)
+    return records_by_bucket
+
+
+def _merge_records_by_bucket(dst: dict, src: dict) -> None:
+    seen = _existing_done_keys(dst)
+    for (method, sample_id), records in src.items():
+        bucket = (str(method).upper(), str(sample_id))
+        for rec in records:
+            rid = rec.get("region_id")
+            if rid is None:
+                continue
+            try:
+                rid = int(rid)
+            except Exception:
+                continue
+            key = (bucket[1], rid, bucket[0])
+            if key in seen:
+                continue
+            seen.add(key)
+            rec["sample_id"] = bucket[1]
+            rec["region_id"] = rid
+            rec["crop_method"] = bucket[0]
+            dst[bucket].append(rec)
+
+
 def main():
     args = parse_args()
     items = _discover_items(args)
     output_root = Path(args.output_dir).expanduser().resolve()
 
     existing_records = defaultdict(list)
+    existing_jsonl_records = defaultdict(list)
     if not args.overwrite:
         existing_records = _load_existing_records_by_sample(output_root)
         done_keys = _existing_done_keys(existing_records)
+        if args.output_jsonl:
+            jsonl_path = Path(args.output_jsonl).expanduser().resolve()
+            existing_jsonl_records = _load_existing_records_from_jsonl(jsonl_path)
+            done_keys.update(_existing_done_keys(existing_jsonl_records))
         before = len(items)
         items = [it for it in items if (str(it["sample_id"]), int(it["region_id"]), "GRID") not in done_keys]
         skipped = before - len(items)
@@ -370,8 +429,8 @@ def main():
 
     records_by_bucket = defaultdict(list)
     if not args.overwrite:
-        for bucket, recs in existing_records.items():
-            records_by_bucket[bucket].extend(recs)
+        _merge_records_by_bucket(records_by_bucket, existing_records)
+        _merge_records_by_bucket(records_by_bucket, existing_jsonl_records)
 
     try:
         for batch_start in range(0, len(items), args.batch_size):
