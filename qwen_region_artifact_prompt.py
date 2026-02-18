@@ -13,9 +13,9 @@ THIS_DIR = Path(__file__).resolve().parent
 DEFAULT_SYSTEM_FILE = THIS_DIR / "prompts" / "region_forensics_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
 
-DEFAULT_META_CSV = "/scratch3/che489/Ha/interspeech/datasets/region_phone_table_top3_all_with_ptype_feature.csv"
-DEFAULT_MFA_JSON_ROOT = "/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned"
-DEFAULT_SPEC_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid"
+DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/region_phone_table_grid.csv"
+DEFAULT_MFA_JSON_ROOT = "/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/"
+DEFAULT_SPEC_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid/"
 DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/localization/qwen3_vlm"
 DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking"
 
@@ -125,11 +125,15 @@ def build_messages(args: argparse.Namespace, item: dict):
     user_template = _resolve_user_template(args)
 
     transcript_text = _extract_transcript_word_tier(Path(item["mfa_json"]))
-    user_prompt = user_template.format(
-        ID=item["region_id"],
-        sample_id=item["sample_id"],
-        method="GRID",
-        transcript=transcript_text,
+    user_prompt = user_template.format_map(
+        defaultdict(
+            str,
+            {
+                "ID": item["region_id"],
+                "sample_id": item["sample_id"],
+                "transcript": transcript_text,
+            },
+        )
     )
 
     messages = [
@@ -172,7 +176,7 @@ def parse_args():
         default=None,
         help=(
             "Path to user prompt template txt. Supports placeholders: "
-            "{ID}, {sample_id}, {method}, {transcript}. "
+            "{ID}, {sample_id}, {transcript}. "
             f"Default: {DEFAULT_USER_TEMPLATE_FILE.as_posix()}"
         ),
     )
