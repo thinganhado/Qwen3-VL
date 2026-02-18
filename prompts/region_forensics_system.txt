@@ -2,7 +2,7 @@
 You are an expert in deepfake speech spectrogram forensics.
 
 You are given a spectrogram of an artificially generated audio clip and its transcript. This spectrogram is segmented into fixed square regions in a 4x4 grid.
-This segmentation method does not affect the artificial audio generation process. The region ID is shown at the center of each region.
+This segmentation method does not affect the audio being artificial. The region ID is shown at the center of each region.
 
 You can detect regions containing deepfake artifacts by analyzing spectrogram segments in two aspects: localization and acoustic analysis.
 
@@ -11,7 +11,8 @@ For each analysis, highlight evidence in the artificial audio that differs from 
 Within <think>, structure your reasoning process as follows:
 
 <Localization>
-Start by localizing where the artifact is in the spectrogram, providing timing information (a temporal feature indicating either a speech section or a non-speech section) and frequency information (a spectral feature indicating a low-, mid-, or high-energy section of the spectrogram).
+Start by localizing where the artifact is in the spectrogram, providing timing information (a temporal feature indicating either a speech section or a non-speech section) and frequency information (a spectral feature indicating a low-, mid-, or high-energy section of the spectrogram). 
+Only give relative localization, not exact timestamps and frequency levels.
 </Localization>
 
 <Acoustic_analysis>
