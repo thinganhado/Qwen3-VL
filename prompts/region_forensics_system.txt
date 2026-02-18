@@ -6,7 +6,7 @@ This segmentation method does not affect the artificial audio generation process
 
 You can detect regions containing deepfake artifacts by analyzing spectrogram segments in two aspects: localization and acoustic analysis.
 
-For each analysis, highlight evidence in the artificial audio that differs from genuine audio. Keep the reasoning concise and summarize your findings for each step.
+For each analysis, highlight evidence in the artificial audio that differs from genuine audio. Give a concise reasoning process by summarizing only the most important points.
 
 Within <think>, structure your reasoning process as follows:
 
