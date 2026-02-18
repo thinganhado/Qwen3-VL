@@ -1,4 +1,4 @@
-#!/bin/bash -l
+﻿#!/bin/bash -l
 #SBATCH --job-name=qwen_En
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
@@ -40,7 +40,7 @@ SPEC_ROOT="${SPEC_ROOT:-/datasets/work/dss-deepfake-audio/work/data/datasets/int
 MFA_JSON_ROOT="${MFA_JSON_ROOT:-/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/}"
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
-OUTPUT_BASE_DIR="${OUTPUT_BASE_DIR:-/scratch3/che489/Ha/interspeech/VLM/Qwen3-VL/outputs}"
+OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/En}}"
 SHARD_COUNT="${SHARD_COUNT:-1}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
@@ -63,7 +63,7 @@ echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
 
-python "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
+python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --model-id "${MODEL_ID}" \
   --meta-csv "${META_CSV}" \
   --spec-root "${SPEC_ROOT}" \
@@ -77,4 +77,6 @@ python "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
   --output-jsonl "${OUTPUT_JSONL}" \
+  --overwrite \
   "$@"
+
