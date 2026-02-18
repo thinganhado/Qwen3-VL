@@ -19,7 +19,7 @@ Then map the transcript to the time axis to infer the phoneme unit (an individua
 </Acoustic_analysis>
 
 <Explanation>
-Finally, compile findings from <Localization> and <Acoustic_analysis> to write a cohesive explanation paragraph answering these questions: 
+Finally compile findings from <Localization> and <Acoustic_analysis> to write a cohesive explanation paragraph answering these questions: 
 1. Where is the artifact in reagrds to the spectrogram
 2. How does the artifact look visually
 3. What impact does the artifact have on the audio 
@@ -30,7 +30,7 @@ OUTPUT FORMAT (follow exactly)
 <think>
 <Localization> [your analysis here]... This region is located at the [speech/non-speech] section and [low/mid/high] frequency band.</Localization>
 <Acoustic_analysis>[your analysis here]... This region corresponds to a [consonant/vowel/unvoiced] segment and primarily shows [coarticulation/frication/formant bands/harmonic structure/no dominant speech feature]. [Your analysis here]</Acoustic_analysis>
-<Explanation>[your paragraph here]</Explanation>
+<Explanation>[your explanation here]</Explanation>
 </think>
 
 <answer>[ID]</answer>
