@@ -16,7 +16,7 @@ DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "prompts" / "region_forensics_user.txt"
 DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/region_phone_table_grid.csv"
 DEFAULT_MFA_JSON_ROOT = "/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/"
 DEFAULT_SPEC_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid/"
-DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/localization/qwen3_vlm"
+DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/VLM/Qwen3-VL/outputs"
 DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking"
 
 
@@ -85,15 +85,15 @@ def _discover_items(args: argparse.Namespace):
     with meta_csv.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            sample_id = str(row.get("sample_id", "")).strip()
-            method = str(row.get("method", "")).strip().lower()
+            sample_id_raw = str(row.get("sample_id", "")).strip()
             rid_raw = str(row.get("region_id", "")).strip()
-            if not sample_id or method != "grid" or not rid_raw:
+            if not sample_id_raw or not rid_raw:
                 continue
             try:
                 region_id = int(rid_raw)
             except ValueError:
                 continue
+            sample_id = Path(sample_id_raw).stem
 
             p1_path = spec_root / f"{sample_id}_grid_img_edge_number_axes.png"
             mfa_json_path = mfa_root / f"{sample_id}.json"
@@ -103,6 +103,7 @@ def _discover_items(args: argparse.Namespace):
             items.append(
                 {
                     "sample_id": sample_id,
+                    "sample_id_raw": sample_id_raw,
                     "region_id": region_id,
                     "crop_method": "GRID",
                     "p1": str(p1_path),
@@ -116,7 +117,7 @@ def _discover_items(args: argparse.Namespace):
     if not items:
         raise ValueError("No valid GRID items discovered from CSV + spec root.")
 
-    return items
+    return sorted(items, key=lambda x: (x["sample_id"], x["region_id"]))
 
 
 def build_messages(args: argparse.Namespace, item: dict):
@@ -130,7 +131,11 @@ def build_messages(args: argparse.Namespace, item: dict):
             str,
             {
                 "ID": item["region_id"],
+                "id": item["region_id"],
+                "region_id": item["region_id"],
+                "ID1": item["region_id"],
                 "sample_id": item["sample_id"],
+                "sample_id_raw": item.get("sample_id_raw", item["sample_id"]),
                 "transcript": transcript_text,
             },
         )
@@ -162,7 +167,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run local HF Qwen-VL prompt for grid-only spectrogram artifact analysis.")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path.")
 
-    parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path with sample_id/method/region_id entries.")
+    parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path with sample_id and region_id entries.")
     parser.add_argument("--spec-root", default=DEFAULT_SPEC_ROOT, help="Root for GRID spectrograms with axes.")
     parser.add_argument("--mfa-json-root", default=DEFAULT_MFA_JSON_ROOT, help="Root for MFA JSON transcript files.")
 

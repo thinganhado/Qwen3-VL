@@ -1,3 +1,3 @@
 ﻿The region containing artifact is:
-Region {ID1} 
+Region {ID} 
 Please provide your thinking process within <think></think> tags and your final answer within <answer></answer> tags.
