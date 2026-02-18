@@ -3,6 +3,7 @@ import argparse
 import csv
 import json
 import os
+from fnmatch import fnmatch
 from pathlib import Path
 
 import torch
@@ -50,6 +51,8 @@ def _discover_items(args: argparse.Namespace):
                 continue
 
             sample_id = img_path.stem
+            if args.sample_id_glob and not fnmatch(sample_id, args.sample_id_glob):
+                continue
             gt_regions = str(row.get("regions", "")).strip()
             items.append(
                 {
@@ -143,6 +146,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run baseline Qwen-VL prompt on stage1_gt.csv image rows.")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path.")
     parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path containing img_path and regions columns.")
+    parser.add_argument(
+        "--sample-id-glob",
+        default="*_LA_D_*",
+        help="Only include rows whose img_path stem matches this glob. Use empty string to disable.",
+    )
 
     parser.add_argument("--system-file", default=None, help=f"Path to system prompt txt. Default: {DEFAULT_SYSTEM_FILE.as_posix()}")
     parser.add_argument("--user-template-file", default=None, help=f"Path to user prompt txt. Default: {DEFAULT_USER_TEMPLATE_FILE.as_posix()}")

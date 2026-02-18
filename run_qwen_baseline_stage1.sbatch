@@ -3,12 +3,12 @@
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=128G
-#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=64
+#SBATCH --mem=256G
+#SBATCH --time=72:00:00
 #SBATCH --output=logs/qwen_baseline_%A_%a.out
 #SBATCH --account=OD-237777
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:8
 
 set -euo pipefail
 
@@ -44,6 +44,7 @@ SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-200}"
 DTYPE="${DTYPE:-auto}"
 OVERWRITE="${OVERWRITE:-0}"
+SAMPLE_ID_GLOB="${SAMPLE_ID_GLOB:-*_LA_D_*}"
 
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
   OUTPUT_DIR="${OUTPUT_DIR%/}/shard_${SHARD_ID}_of_${SHARD_COUNT}"
@@ -55,6 +56,7 @@ echo "[run] MODEL_ID=${MODEL_ID}"
 echo "[run] META_CSV=${META_CSV}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
+echo "[run] SAMPLE_ID_GLOB=${SAMPLE_ID_GLOB}"
 echo "[run] OVERWRITE=${OVERWRITE}"
 
 CMD=(python -u "${SCRIPT_DIR}/qwen_baseline_artifact_prompt.py" \
@@ -64,6 +66,7 @@ CMD=(python -u "${SCRIPT_DIR}/qwen_baseline_artifact_prompt.py" \
   --user-template-file "${USER_TEMPLATE_FILE}" \
   --dtype "${DTYPE}" \
   --max-new-tokens "${MAX_NEW_TOKENS}" \
+  --sample-id-glob "${SAMPLE_ID_GLOB}" \
   --num-shards "${SHARD_COUNT}" \
   --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
