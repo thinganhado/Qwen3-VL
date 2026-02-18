@@ -1,14 +1,14 @@
 #!/bin/bash -l
-#SBATCH --job-name=qwen_region_full
+#SBATCH --job-name=qwen_En
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=128G
-#SBATCH --time=48:00:00
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=256G
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/qwen_region_full_%j.out
 #SBATCH --account=OD-237777
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:8
 
 set -euo pipefail
 
