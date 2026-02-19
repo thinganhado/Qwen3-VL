@@ -1,3 +1,4 @@
 ﻿The region containing artifact is:
 Region {ID} 
+This region is located at the {time} section and {frequency} frequency band, corresponding to a {phonetic} segment
 Please provide your thinking process within <think></think> tags and your final answer within <answer></answer> tags.

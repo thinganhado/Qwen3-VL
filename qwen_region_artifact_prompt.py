@@ -18,7 +18,7 @@ DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/intersp
 DEFAULT_MFA_JSON_ROOT = "/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/"
 DEFAULT_SPEC_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid/"
 DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/VLM/Qwen3-VL/outputs"
-DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking"
+DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-8B-Thinking/"
 
 
 def _normalize_image_ref(value: str) -> str:
@@ -106,6 +106,9 @@ def _discover_items(args: argparse.Namespace):
                     "sample_id": sample_id,
                     "sample_id_raw": sample_id_raw,
                     "region_id": region_id,
+                    "time": str(row.get("T", "")).strip(),
+                    "frequency": str(row.get("F", "")).strip(),
+                    "phonetic": str(row.get("P_type", "")).strip(),
                     "crop_method": "GRID",
                     "p1": str(p1_path),
                     "mfa_json": str(mfa_json_path),
@@ -130,16 +133,19 @@ def build_messages(args: argparse.Namespace, item: dict):
     user_prompt = user_template.format_map(
         defaultdict(
             str,
-            {
-                "ID": item["region_id"],
-                "id": item["region_id"],
-                "region_id": item["region_id"],
-                "sample_id": item["sample_id"],
-                "sample_id_raw": item.get("sample_id_raw", item["sample_id"]),
-                "transcript": transcript_text,
-            },
+                {
+                    "ID": item["region_id"],
+                    "id": item["region_id"],
+                    "region_id": item["region_id"],
+                    "sample_id": item["sample_id"],
+                    "sample_id_raw": item.get("sample_id_raw", item["sample_id"]),
+                    "time": item.get("time", ""),
+                    "frequency": item.get("frequency", ""),
+                    "phonetic": item.get("phonetic", ""),
+                    "transcript": transcript_text,
+                },
+            )
         )
-    )
 
     messages = [
         {"role": "system", "content": [{"type": "text", "text": system_prompt}]},
@@ -181,7 +187,7 @@ def parse_args():
         default=None,
         help=(
             "Path to user prompt template txt. Supports placeholders: "
-            "{ID}, {sample_id}, {transcript}. "
+            "{ID}, {sample_id}, {time}, {frequency}, {phonetic}, {transcript}. "
             f"Default: {DEFAULT_USER_TEMPLATE_FILE.as_posix()}"
         ),
     )
