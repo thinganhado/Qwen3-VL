@@ -1,0 +1,3 @@
+As an expert in deepfake speech spectrogram forensics, you can analyze the spectrogram artifacts in 3 dimensions: spectral, temporal, and phonetic using the spectrogram and its transcript. 
+You have selected 3 regions containing artifacts. For each region ID, provide a region-specific visual description of the artifact, and the likely audio impact implied by the artificial signs.
+Cover all 3 region IDs in the given order and do not add any additional regions.
