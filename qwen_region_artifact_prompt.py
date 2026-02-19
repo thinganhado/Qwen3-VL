@@ -49,6 +49,44 @@ def _resolve_user_template(args: argparse.Namespace) -> str:
     return _load_text_file(Path(args.user_template_file), "--user-template-file")
 
 
+def _resolve_spec_image_path(spec_root: Path, sample_id: str, method: str) -> Optional[Path]:
+    method_l = str(method or "").strip().lower()
+
+    # Prefer exact, deterministic names first.
+    exact_candidates = [
+        spec_root / f"{sample_id}_{method_l}_img_edge_number_axes.png",
+        spec_root / f"{sample_id}_{method_l}_img_edge_number.png",
+    ]
+    if method_l == "grid":
+        exact_candidates = [
+            spec_root / f"{sample_id}_grid_img_edge_number_axes.png",
+            spec_root / f"{sample_id}_grid_img_edge_number.png",
+        ] + exact_candidates
+
+    for c in exact_candidates:
+        if c.exists():
+            return c
+
+    # Then handle parameterized names like superpixel_n40_c20.0 / grid_n4 / sam_*
+    patterns = [
+        f"{sample_id}_{method_l}*_img_edge_number_axes.png",
+        f"{sample_id}_{method_l}*_img_edge_number.png",
+    ]
+
+    for pat in patterns:
+        matches = sorted(spec_root.glob(pat))
+        if matches:
+            return matches[0]
+
+    # Final fallback: any image for this sample id.
+    for pat in (f"{sample_id}_*_img_edge_number_axes.png", f"{sample_id}_*_img_edge_number.png"):
+        matches = sorted(spec_root.glob(pat))
+        if matches:
+            return matches[0]
+
+    return None
+
+
 def _extract_transcript_word_tier(mfa_json_path: Path) -> str:
     if not mfa_json_path.exists():
         return ""
@@ -96,9 +134,11 @@ def _discover_items(args: argparse.Namespace):
                 continue
             sample_id = Path(sample_id_raw).stem
 
-            p1_path = spec_root / f"{sample_id}_grid_img_edge_number_axes.png"
+            method = str(row.get("method", "grid")).strip() or "grid"
+            method_u = method.upper()
+            p1_path = _resolve_spec_image_path(spec_root, sample_id, method)
             mfa_json_path = mfa_root / f"{sample_id}.json"
-            if not p1_path.exists():
+            if p1_path is None or not p1_path.exists():
                 continue
 
             items.append(
@@ -109,7 +149,7 @@ def _discover_items(args: argparse.Namespace):
                     "time": str(row.get("T", "")).strip(),
                     "frequency": str(row.get("F", "")).strip(),
                     "phonetic": str(row.get("P_type", "")).strip(),
-                    "crop_method": "GRID",
+                    "crop_method": method_u,
                     "p1": str(p1_path),
                     "mfa_json": str(mfa_json_path),
                 }
@@ -119,7 +159,7 @@ def _discover_items(args: argparse.Namespace):
         items = items[: args.max_items]
 
     if not items:
-        raise ValueError("No valid GRID items discovered from CSV + spec root.")
+        raise ValueError("No valid items discovered from CSV + spec root.")
 
     return sorted(items, key=lambda x: (x["sample_id"], x["region_id"]))
 
@@ -152,7 +192,7 @@ def build_messages(args: argparse.Namespace, item: dict):
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": "Spectrogram (GRID with axes):"},
+                {"type": "text", "text": f"Spectrogram ({item['crop_method']}):"},
                 {"type": "image", "image": p1},
                 {"type": "text", "text": f"Transcript (word tier): {transcript_text}" if transcript_text else "Transcript (word tier): [missing]"},
                 {"type": "text", "text": user_prompt},
@@ -163,14 +203,14 @@ def build_messages(args: argparse.Namespace, item: dict):
     md = {
         "sample_id": item["sample_id"],
         "region_id": item["region_id"],
-        "crop_method": "GRID",
+        "crop_method": item["crop_method"],
         "transcript": transcript_text,
     }
     return messages, md
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run local HF Qwen-VL prompt for grid-only spectrogram artifact analysis.")
+    parser = argparse.ArgumentParser(description="Run local HF Qwen-VL prompt for spectrogram artifact analysis.")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path.")
 
     parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path with sample_id and region_id entries.")
@@ -393,7 +433,7 @@ def main():
             existing_jsonl_records = _load_existing_records_from_jsonl(jsonl_path)
             done_keys.update(_existing_done_keys(existing_jsonl_records))
         before = len(items)
-        items = [it for it in items if (str(it["sample_id"]), int(it["region_id"]), "GRID") not in done_keys]
+        items = [it for it in items if (str(it["sample_id"]), int(it["region_id"]), str(it.get("crop_method", "GRID")).upper()) not in done_keys]
         skipped = before - len(items)
         if skipped > 0:
             print(f"[resume] skipped_existing_regions={skipped}")
@@ -477,7 +517,7 @@ def main():
                 record = {
                     "sample_id": md["sample_id"],
                     "region_id": md["region_id"],
-                    "crop_method": "GRID",
+                    "crop_method": item["crop_method"],
                     "transcript": md["transcript"],
                     "p1": item["p1"],
                     "response": output_text,
