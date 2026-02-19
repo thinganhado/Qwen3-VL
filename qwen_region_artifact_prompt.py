@@ -5,6 +5,7 @@ import json
 import os
 from collections import defaultdict
 from pathlib import Path
+from typing import Optional
 
 import torch
 from transformers import AutoModelForImageTextToText, AutoProcessor
@@ -234,6 +235,12 @@ def parse_args():
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
     parser.add_argument("--dtype", default="auto", help="Model dtype, e.g., auto, float16, bfloat16.")
+    parser.add_argument(
+        "--attn-implementation",
+        default="eager",
+        choices=["eager", "sdpa", "flash_attention_2"],
+        help="Attention backend. Use eager to avoid unstable fused kernels.",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=600)
     parser.add_argument("--batch-size", type=int, default=1, help="Number of items to generate per forward pass.")
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling.")
@@ -460,7 +467,8 @@ def main():
     torch_dtype = _resolve_torch_dtype(args.dtype)
     model = AutoModelForImageTextToText.from_pretrained(
         args.model_id,
-        dtype=torch_dtype,
+        torch_dtype=torch_dtype,
+        attn_implementation=args.attn_implementation,
         device_map=args.device_map,
         trust_remote_code=True,
     )

@@ -17,6 +17,9 @@ if [ -f "$HOME/.bashrc" ]; then
 fi
 
 conda activate deepfake
+export CUDA_LAUNCH_BLOCKING="${CUDA_LAUNCH_BLOCKING:-1}"
+export TRANSFORMERS_VERBOSITY="${TRANSFORMERS_VERBOSITY:-info}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 if [[ -n "${SCRIPT_DIR_OVERRIDE:-}" ]]; then
   SCRIPT_DIR="${SCRIPT_DIR_OVERRIDE}"
@@ -51,7 +54,8 @@ else
   OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR}/qwen_region_outputs.jsonl}"
 fi
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-600}"
-DTYPE="${DTYPE:-auto}"
+DTYPE="${DTYPE:-bfloat16}"
+ATTN_IMPLEMENTATION="${ATTN_IMPLEMENTATION:-eager}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 OVERWRITE="${OVERWRITE:-0}"
 
@@ -63,6 +67,7 @@ echo "[run] MFA_JSON_ROOT=${MFA_JSON_ROOT}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
+echo "[run] DTYPE=${DTYPE} ATTN_IMPLEMENTATION=${ATTN_IMPLEMENTATION}"
 echo "[run] OVERWRITE=${OVERWRITE}"
 
 CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
@@ -73,6 +78,7 @@ CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --system-file "${SYSTEM_FILE}" \
   --user-template-file "${USER_TEMPLATE_FILE}" \
   --dtype "${DTYPE}" \
+  --attn-implementation "${ATTN_IMPLEMENTATION}" \
   --max-new-tokens "${MAX_NEW_TOKENS}" \
   --batch-size "${BATCH_SIZE}" \
   --num-shards "${SHARD_COUNT}" \
