@@ -16,6 +16,7 @@ DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "baseline_prompts" / "baseline_user.txt"
 
 DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_gt.csv"
 DEFAULT_META_JSON = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_val.json"
+DEFAULT_IMAGE_FOLDER = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid"
 
 DEFAULT_MODEL_PATHS = {
     "qwen25_3b_stage1_merged": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_merged_Qwen2.5-VL-3B-Instruct",
@@ -45,6 +46,28 @@ def _resolve_model_id(args: argparse.Namespace) -> str:
     if args.model_id:
         return args.model_id
     return DEFAULT_MODEL_PATHS[args.model_key]
+
+def _resolve_image_path(image_path_raw: str, image_folder: str) -> Path | None:
+    p = Path(str(image_path_raw)).expanduser()
+
+    candidates = []
+    if p.is_absolute():
+        candidates.append(p)
+    else:
+        if image_folder:
+            candidates.append(Path(image_folder).expanduser() / p)
+        candidates.append(Path.cwd() / p)
+
+    for cand in candidates:
+        try:
+            resolved = cand.resolve()
+        except Exception:
+            resolved = cand
+        if resolved.exists():
+            return resolved
+
+    return None
+
 
 
 def _extract_first_image_field(example: dict) -> str:
@@ -96,8 +119,8 @@ def _discover_items_from_json(args: argparse.Namespace):
         if not img_path_raw:
             continue
 
-        img_path = Path(img_path_raw).expanduser().resolve()
-        if not img_path.exists():
+        img_path = _resolve_image_path(img_path_raw, args.image_folder)
+        if img_path is None:
             continue
 
         sample_id = str(ex.get("id", "")).strip() or img_path.stem
@@ -135,8 +158,8 @@ def _discover_items_from_csv(args: argparse.Namespace):
             img_path_raw = str(row.get("img_path", "")).strip()
             if not img_path_raw:
                 continue
-            img_path = Path(img_path_raw).expanduser().resolve()
-            if not img_path.exists():
+            img_path = _resolve_image_path(img_path_raw, args.image_folder)
+            if img_path is None:
                 continue
 
             sample_id = img_path.stem
@@ -258,6 +281,11 @@ def parse_args():
     parser.add_argument("--require-meta-json", action="store_true", help="Fail if --meta-json is missing.")
     parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="Fallback CSV path containing img_path and regions columns.")
     parser.add_argument(
+        "--image-folder",
+        default=DEFAULT_IMAGE_FOLDER,
+        help="Base folder for resolving relative image paths from --meta-json/--meta-csv.",
+    )
+    parser.add_argument(
         "--sample-id-glob",
         default="",
         help="Only include rows whose sample_id/stem matches this glob. Empty means no filtering.",
@@ -320,6 +348,7 @@ def main():
 
     print(f"[model] {args.model_id}")
     print(f"[items] {len(items)}")
+    print(f"[image_folder] {args.image_folder}")
 
     torch_dtype = _resolve_torch_dtype(args.dtype)
     model = AutoModelForImageTextToText.from_pretrained(

@@ -43,7 +43,7 @@ SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-200}"
 DTYPE="${DTYPE:-auto}"
 OVERWRITE="${OVERWRITE:-0}"
-SAMPLE_ID_GLOB="${SAMPLE_ID_GLOB:-*_LA_D_*}"
+SAMPLE_ID_GLOB="${SAMPLE_ID_GLOB:-}"
 
 _model_basename="$(basename "${MODEL_ID%/}")"
 MODEL_TAG="${MODEL_TAG:-$(echo "${_model_basename}" | tr -cs 'A-Za-z0-9._-' '_')}"
@@ -70,15 +70,19 @@ echo "[run] OVERWRITE=${OVERWRITE}"
 CMD=(python -u "${SCRIPT_DIR}/qwen_baseline_artifact_prompt.py" \
   --model-id "${MODEL_ID}" \
   --meta-csv "${META_CSV}" \
+  --image-folder "${IMAGE_FOLDER:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid}" \
   --system-file "${SYSTEM_FILE}" \
   --user-template-file "${USER_TEMPLATE_FILE}" \
   --dtype "${DTYPE}" \
   --max-new-tokens "${MAX_NEW_TOKENS}" \
-  --sample-id-glob "${SAMPLE_ID_GLOB}" \
   --num-shards "${SHARD_COUNT}" \
   --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
   --output-jsonl "${OUTPUT_JSONL}")
+
+if [[ -n "${SAMPLE_ID_GLOB}" ]]; then
+  CMD+=(--sample-id-glob "${SAMPLE_ID_GLOB}")
+fi
 
 if [[ "${OVERWRITE}" == "1" ]]; then
   CMD+=(--overwrite)
