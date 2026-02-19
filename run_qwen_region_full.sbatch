@@ -1,4 +1,4 @@
-﻿#!/bin/bash -l
+﻿#!/bin/sh
 #SBATCH --job-name=qwen_En
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
