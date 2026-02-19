@@ -17,7 +17,7 @@ DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "query2_prompts" / "query2_user.txt"
 DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/SFT_2turn/stage1_gt_with_transcript.csv"
 DEFAULT_IMAGE_FOLDER = ""
 DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/VLM/Qwen3-VL/query2_outputs"
-DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-8B-Thinking/"
+DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Instruct/"
 DEFAULT_MODEL_PATHS = {
     "qwen3_30b_a3b_instruct": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Instruct/",
     "qwen3_8b_stage1_merged": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_merged_Qwen3-VL-8B-Instruct/",
@@ -181,8 +181,8 @@ def parse_args():
     )
     parser.add_argument(
         "--model-id",
-        default=None,
-        help=f"HF model id or local model path (overrides --model-key). Legacy default was: {DEFAULT_MODEL_ID}",
+        default=DEFAULT_MODEL_ID,
+        help="HF model id or local model path (overrides --model-key).",
     )
 
     parser.add_argument(

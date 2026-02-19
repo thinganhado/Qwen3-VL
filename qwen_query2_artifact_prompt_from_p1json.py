@@ -19,6 +19,7 @@ DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/intersp
 DEFAULT_IMAGE_FOLDER = ""
 DEFAULT_P1_JSON_ROOT = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_strongVLM/Qwen3-VL-30B_test"
 DEFAULT_OUTPUT_DIR = "/scratch3/che489/Ha/interspeech/VLM/Qwen3-VL/query2_outputs_from_p1json"
+DEFAULT_MODEL_ID = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Instruct/"
 DEFAULT_MODEL_PATHS = {
     "qwen3_30b_a3b_instruct": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Instruct/",
     "qwen3_8b_stage1_merged": "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_merged_Qwen3-VL-8B-Instruct/",
@@ -40,7 +41,7 @@ def _load_text_file(path: Path, field_name: str) -> str:
     resolved = path.expanduser().resolve()
     if not resolved.exists():
         raise FileNotFoundError(f"{field_name} file does not exist: {resolved}")
-    return resolved.read_text(encoding="utf-8").strip()
+    return resolved.read_text(encoding="utf-8-sig").strip()
 
 
 def _resolve_system_prompt(args: argparse.Namespace) -> str:
@@ -124,7 +125,7 @@ def _discover_items(args: argparse.Namespace):
     used_sample_ids = set()
     skipped_missing_p1 = 0
 
-    with meta_csv.open("r", encoding="utf-8", newline="") as f:
+    with meta_csv.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         for row_idx, row in enumerate(reader, start=1):
             img_path_raw = str(row.get("img_path", "")).strip()
@@ -227,7 +228,7 @@ def parse_args():
         default=DEFAULT_MODEL_KEY,
         help="Named model option. Ignored when --model-id is explicitly set.",
     )
-    parser.add_argument("--model-id", default=None, help="HF model id or local model path (overrides --model-key).")
+    parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path (overrides --model-key).")
     parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV with at least img_path, transcript, prompt2_target.")
     parser.add_argument("--image-folder", default=DEFAULT_IMAGE_FOLDER, help="Optional base folder for relative img_path entries.")
     parser.add_argument("--prompt1-json-root", default=DEFAULT_P1_JSON_ROOT, help="Root containing <sample_id>/json from prompt1 runs.")
@@ -529,4 +530,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
