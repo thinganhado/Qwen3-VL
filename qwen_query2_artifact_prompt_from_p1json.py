@@ -106,6 +106,12 @@ def _extract_numbers_list_text(raw_response: str) -> str:
 def _sample_id_candidates(row: dict, img_path: Path, row_idx: int):
     candidates = []
 
+    # Prefer explicit sample id columns when available.
+    for key in ("sample_id", "sample", "sampleid"):
+        v = str(row.get(key, "")).strip()
+        if v:
+            candidates.append(v)
+
     row_id = str(row.get("id", "")).strip()
     if row_id:
         candidates.append(row_id)
