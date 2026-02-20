@@ -52,6 +52,13 @@ MFA_JSON_ROOT="${MFA_JSON_ROOT:-/scratch3/che489/Ha/interspeech/datasets/vocv4_m
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
 OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/En}}"
+CACHE_BASE_DIR="${CACHE_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/En_high_performing/cache}"
+FLASHINFER_WORKSPACE_DIR="${FLASHINFER_WORKSPACE_DIR:-${CACHE_BASE_DIR}/flashinfer}"
+XDG_CACHE_HOME="${XDG_CACHE_HOME:-${CACHE_BASE_DIR}}"
+TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-${CACHE_BASE_DIR}/triton}"
+HF_HOME="${HF_HOME:-${CACHE_BASE_DIR}/huggingface}"
+TORCH_HOME="${TORCH_HOME:-${CACHE_BASE_DIR}/torch}"
+TMPDIR="${TMPDIR:-${CACHE_BASE_DIR}/tmp}"
 SHARD_COUNT="${SHARD_COUNT:-1}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
@@ -72,6 +79,9 @@ VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-}"
 VLLM_MAX_IMAGES_PER_PROMPT="${VLLM_MAX_IMAGES_PER_PROMPT:-1}"
 VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
 
+mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
+export FLASHINFER_WORKSPACE_DIR XDG_CACHE_HOME TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
+
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
 echo "[run] BACKEND=${BACKEND}"
@@ -83,6 +93,8 @@ echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
 echo "[run] DTYPE=${DTYPE} ATTN_IMPLEMENTATION=${ATTN_IMPLEMENTATION}"
 echo "[run] OVERWRITE=${OVERWRITE}"
+echo "[run] CACHE_BASE_DIR=${CACHE_BASE_DIR}"
+echo "[run] FLASHINFER_WORKSPACE_DIR=${FLASHINFER_WORKSPACE_DIR}"
 
 CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --backend "${BACKEND}" \
