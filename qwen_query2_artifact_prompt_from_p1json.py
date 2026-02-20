@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import hashlib
 import json
 import os
 import re
@@ -314,11 +315,23 @@ def _generate_batch(model, processor, batch_messages, max_new_tokens, do_sample,
 
 
 def _write_sample_json(output_dir: Path, records_by_bucket: dict):
+    def _safe_path_component(value: str, max_len: int = 120) -> str:
+        text = str(value or "").strip()
+        text = re.sub(r"[\\/:\*\?\"<>\|\s]+", "_", text)
+        text = re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("._-")
+        if not text:
+            text = "sample"
+        if len(text) <= max_len:
+            return text
+        digest = hashlib.md5(text.encode("utf-8")).hexdigest()[:10]
+        keep = max_len - 11
+        return f"{text[:keep]}_{digest}"
+
     for (method, sample_id), records in records_by_bucket.items():
         if not records:
             continue
         method_dir = output_dir / str(method).lower()
-        sample_dir = method_dir / sample_id
+        sample_dir = method_dir / _safe_path_component(sample_id)
         sample_dir.mkdir(parents=True, exist_ok=True)
         payload = records[-1]
         (sample_dir / "json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
