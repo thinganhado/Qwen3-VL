@@ -391,6 +391,15 @@ def _generate_batch_vllm(llm, processor, process_vision_info, batch_messages, sa
     return texts
 
 
+def _infer_tp_size_from_env() -> int:
+    cvd = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if cvd:
+        parts = [p.strip() for p in cvd.split(",") if p.strip()]
+        if parts:
+            return len(parts)
+    return 1
+
+
 def _write_sample_grouped_json(output_dir: Path, records_by_bucket: dict):
     for (method, sample_id), records in records_by_bucket.items():
         method_dir = output_dir / str(method).lower()
@@ -554,12 +563,14 @@ def main():
         )
         processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
     elif args.backend == "vllm":
+        # Prevent CUDA re-init errors in vLLM worker subprocesses.
+        os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
         LLM, SamplingParams, process_vision_info = _import_vllm_deps()
         processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
 
         tp_size = args.tensor_parallel_size
         if tp_size is None:
-            tp_size = torch.cuda.device_count() if torch.cuda.is_available() else 1
+            tp_size = _infer_tp_size_from_env()
 
         llm_kwargs = {
             "model": args.model_id,
