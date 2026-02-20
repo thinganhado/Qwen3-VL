@@ -103,13 +103,44 @@ def _extract_numbers_list_text(raw_response: str) -> str:
     return "[" + ", ".join(str(n) for n in nums) + "]"
 
 
-def _load_prompt1_output(sample_id: str, root: Path) -> str:
-    p = root / sample_id / "json"
-    if not p.exists():
-        raise FileNotFoundError(f"Prompt1 JSON not found: {p}")
-    payload = json.loads(p.read_text(encoding="utf-8-sig"))
-    response = payload.get("response", "")
-    return _extract_numbers_list_text(response)
+def _sample_id_candidates(row: dict, img_path: Path, row_idx: int):
+    candidates = []
+
+    row_id = str(row.get("id", "")).strip()
+    if row_id:
+        candidates.append(row_id)
+
+    stem = img_path.stem.strip()
+    if stem:
+        candidates.append(stem)
+        # Some CSV image stems include split tags that are not used in prompt1 output folder names.
+        candidates.append(stem.replace("_LA_D_", "_"))
+        candidates.append(stem.replace("_LA_D_", ""))
+
+    if not candidates:
+        candidates.append(f"row_{row_idx}")
+
+    seen = set()
+    deduped = []
+    for c in candidates:
+        if not c or c in seen:
+            continue
+        seen.add(c)
+        deduped.append(c)
+    return deduped
+
+
+def _load_prompt1_output(sample_id_candidates, root: Path):
+    last_missing = None
+    for sample_id in sample_id_candidates:
+        p = root / sample_id / "json"
+        if not p.exists():
+            last_missing = p
+            continue
+        payload = json.loads(p.read_text(encoding="utf-8-sig"))
+        response = payload.get("response", "")
+        return sample_id, _extract_numbers_list_text(response)
+    raise FileNotFoundError(f"Prompt1 JSON not found for candidates={sample_id_candidates}. Last tried: {last_missing}")
 
 
 def _discover_items(args: argparse.Namespace):
@@ -125,6 +156,7 @@ def _discover_items(args: argparse.Namespace):
     items = []
     used_sample_ids = set()
     skipped_missing_p1 = 0
+    missing_examples = []
 
     with meta_csv.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -141,16 +173,25 @@ def _discover_items(args: argparse.Namespace):
             if args.img_stem_contains and args.img_stem_contains not in img_path.stem:
                 continue
 
-            sample_id = img_path.stem or f"row_{row_idx}"
+            sample_id_candidates = _sample_id_candidates(row, img_path, row_idx)
+            sample_id = sample_id_candidates[0]
             unique_sample_id = sample_id
             if unique_sample_id in used_sample_ids:
                 unique_sample_id = f"{sample_id}__row{row_idx}"
             used_sample_ids.add(unique_sample_id)
 
             try:
-                prompt1_output = _load_prompt1_output(sample_id, p1_root)
+                matched_sample_id, prompt1_output = _load_prompt1_output(sample_id_candidates, p1_root)
             except FileNotFoundError:
                 skipped_missing_p1 += 1
+                if len(missing_examples) < 5:
+                    missing_examples.append(
+                        {
+                            "row": row_idx,
+                            "img_stem": img_path.stem,
+                            "candidates": sample_id_candidates,
+                        }
+                    )
                 if args.strict_prompt1_json:
                     raise
                 continue
@@ -158,7 +199,7 @@ def _discover_items(args: argparse.Namespace):
             items.append(
                 {
                     "sample_id": unique_sample_id,
-                    "sample_id_raw": sample_id,
+                    "sample_id_raw": matched_sample_id,
                     "crop_method": "GRID",
                     "p1": str(img_path),
                     "img_path": str(img_path),
@@ -174,6 +215,8 @@ def _discover_items(args: argparse.Namespace):
 
     if skipped_missing_p1 > 0:
         print(f"[warn] skipped_missing_prompt1_json={skipped_missing_p1}")
+        if missing_examples:
+            print(f"[warn] example_missing_prompt1_json={json.dumps(missing_examples, ensure_ascii=True)}")
     if not items:
         raise ValueError("No valid items discovered from CSV + prompt1 JSON root.")
     return items
