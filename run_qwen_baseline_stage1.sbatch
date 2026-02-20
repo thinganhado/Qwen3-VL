@@ -3,9 +3,9 @@
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=32
 #SBATCH --mem=96G
-#SBATCH --time=72:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/qwen_baseline_%A_%a.out
 #SBATCH --account=OD-237777
 #SBATCH --gres=gpu:4
