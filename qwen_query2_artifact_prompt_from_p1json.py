@@ -136,7 +136,52 @@ def _sample_id_candidates(row: dict, img_path: Path, row_idx: int):
     return deduped
 
 
-def _load_prompt1_output(sample_id_candidates, root: Path):
+def _img_stem_candidates(stem: str):
+    s = str(stem or "").strip()
+    if not s:
+        return []
+    variants = [
+        s,
+        s.replace("_LA_D_", "_"),
+        s.replace("_LA_D_", ""),
+    ]
+    if s.endswith("_img_edge_number_axes"):
+        base = s[: -len("_img_edge_number_axes")]
+        variants.extend(
+            [
+                base,
+                base.replace("_LA_D_", "_"),
+                base.replace("_LA_D_", ""),
+            ]
+        )
+    seen = set()
+    out = []
+    for v in variants:
+        if v and v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
+
+
+def _build_prompt1_stem_index(root: Path):
+    index = {}
+    for p in root.glob("*/json"):
+        try:
+            payload = json.loads(p.read_text(encoding="utf-8-sig"))
+        except Exception:
+            continue
+        sample_id = p.parent.name
+        response = _extract_numbers_list_text(payload.get("response", ""))
+        img_path = str(payload.get("img_path", "")).strip()
+        if not img_path:
+            continue
+        stem = Path(img_path).stem.strip()
+        for k in _img_stem_candidates(stem):
+            index.setdefault(k, (sample_id, response))
+    return index
+
+
+def _load_prompt1_output(sample_id_candidates, root: Path, fallback_by_stem=None, img_stem: str = ""):
     last_missing = None
     for sample_id in sample_id_candidates:
         p = root / sample_id / "json"
@@ -146,6 +191,11 @@ def _load_prompt1_output(sample_id_candidates, root: Path):
         payload = json.loads(p.read_text(encoding="utf-8-sig"))
         response = payload.get("response", "")
         return sample_id, _extract_numbers_list_text(response)
+    if fallback_by_stem:
+        for k in _img_stem_candidates(img_stem):
+            hit = fallback_by_stem.get(k)
+            if hit is not None:
+                return hit
     raise FileNotFoundError(f"Prompt1 JSON not found for candidates={sample_id_candidates}. Last tried: {last_missing}")
 
 
@@ -158,6 +208,9 @@ def _discover_items(args: argparse.Namespace):
         raise FileNotFoundError(f"--meta-csv does not exist: {meta_csv}")
     if not p1_root.exists():
         raise FileNotFoundError(f"--prompt1-json-root does not exist: {p1_root}")
+
+    prompt1_stem_index = _build_prompt1_stem_index(p1_root)
+    print(f"[info] prompt1_stem_index_size={len(prompt1_stem_index)}")
 
     items = []
     used_sample_ids = set()
@@ -187,7 +240,12 @@ def _discover_items(args: argparse.Namespace):
             used_sample_ids.add(unique_sample_id)
 
             try:
-                matched_sample_id, prompt1_output = _load_prompt1_output(sample_id_candidates, p1_root)
+                matched_sample_id, prompt1_output = _load_prompt1_output(
+                    sample_id_candidates,
+                    p1_root,
+                    fallback_by_stem=prompt1_stem_index,
+                    img_stem=img_path.stem,
+                )
             except FileNotFoundError:
                 skipped_missing_p1 += 1
                 if len(missing_examples) < 5:
