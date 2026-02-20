@@ -38,6 +38,14 @@ cd "${SCRIPT_DIR}"
 
 # Defaults mirror qwen_region_artifact_prompt.py; override via env vars if needed.
 MODEL_ID="${MODEL_ID:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-8B-Thinking/}"
+BACKEND="${BACKEND:-}"
+if [[ -z "${BACKEND}" ]]; then
+  if [[ "${MODEL_ID}" == *"-FP8"* ]]; then
+    BACKEND="vllm"
+  else
+    BACKEND="transformers"
+  fi
+fi
 META_CSV="${META_CSV:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/region_phone_table_grid.csv}"
 SPEC_ROOT="${SPEC_ROOT:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid/}"
 MFA_JSON_ROOT="${MFA_JSON_ROOT:-/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/}"
@@ -58,9 +66,15 @@ DTYPE="${DTYPE:-bfloat16}"
 ATTN_IMPLEMENTATION="${ATTN_IMPLEMENTATION:-eager}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
 OVERWRITE="${OVERWRITE:-0}"
+TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-}"
+VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.9}"
+VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-}"
+VLLM_MAX_IMAGES_PER_PROMPT="${VLLM_MAX_IMAGES_PER_PROMPT:-1}"
+VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
+echo "[run] BACKEND=${BACKEND}"
 echo "[run] META_CSV=${META_CSV}"
 echo "[run] SPEC_ROOT=${SPEC_ROOT}"
 echo "[run] MFA_JSON_ROOT=${MFA_JSON_ROOT}"
@@ -71,6 +85,7 @@ echo "[run] DTYPE=${DTYPE} ATTN_IMPLEMENTATION=${ATTN_IMPLEMENTATION}"
 echo "[run] OVERWRITE=${OVERWRITE}"
 
 CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
+  --backend "${BACKEND}" \
   --model-id "${MODEL_ID}" \
   --meta-csv "${META_CSV}" \
   --spec-root "${SPEC_ROOT}" \
@@ -85,6 +100,21 @@ CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
   --output-jsonl "${OUTPUT_JSONL}")
+
+if [[ -n "${TENSOR_PARALLEL_SIZE}" ]]; then
+  CMD+=(--tensor-parallel-size "${TENSOR_PARALLEL_SIZE}")
+fi
+
+if [[ -n "${VLLM_MAX_MODEL_LEN}" ]]; then
+  CMD+=(--vllm-max-model-len "${VLLM_MAX_MODEL_LEN}")
+fi
+
+CMD+=(--vllm-gpu-memory-utilization "${VLLM_GPU_MEMORY_UTILIZATION}")
+CMD+=(--vllm-max-images-per-prompt "${VLLM_MAX_IMAGES_PER_PROMPT}")
+
+if [[ "${VLLM_ENFORCE_EAGER}" == "1" ]]; then
+  CMD+=(--vllm-enforce-eager)
+fi
 
 if [[ "${OVERWRITE}" == "1" ]]; then
   CMD+=(--overwrite)

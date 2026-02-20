@@ -213,6 +213,12 @@ def build_messages(args: argparse.Namespace, item: dict):
 def parse_args():
     parser = argparse.ArgumentParser(description="Run local HF Qwen-VL prompt for spectrogram artifact analysis.")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path.")
+    parser.add_argument(
+        "--backend",
+        default="transformers",
+        choices=["transformers", "vllm"],
+        help="Inference backend. Use vllm for FP8 checkpoints.",
+    )
 
     parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path with sample_id and region_id entries.")
     parser.add_argument("--spec-root", default=DEFAULT_SPEC_ROOT, help="Root for GRID spectrograms with axes.")
@@ -246,6 +252,11 @@ def parse_args():
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling.")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-p", type=float, default=0.9)
+    parser.add_argument("--tensor-parallel-size", type=int, default=None, help="vLLM tensor parallel size. Default: GPU count.")
+    parser.add_argument("--vllm-gpu-memory-utilization", type=float, default=0.9, help="vLLM GPU memory utilization fraction.")
+    parser.add_argument("--vllm-enforce-eager", action="store_true", help="Enable vLLM eager mode.")
+    parser.add_argument("--vllm-max-model-len", type=int, default=None, help="Optional vLLM max model length.")
+    parser.add_argument("--vllm-max-images-per-prompt", type=int, default=1, help="vLLM multimodal image limit per prompt.")
 
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Per-sample output root.")
     parser.add_argument("--output-file", default=None, help="Single-item output file.")
@@ -315,6 +326,69 @@ def _generate_batch(model, processor, batch_messages, max_new_tokens, do_sample,
             _generate_one(model, processor, m, max_new_tokens, do_sample, temperature, top_p)
             for m in batch_messages
         ]
+
+
+def _import_vllm_deps():
+    try:
+        from qwen_vl_utils import process_vision_info
+    except ImportError as e:
+        raise ImportError("qwen_vl_utils is required for --backend vllm. Install qwen_vl_utils>=0.0.14.") from e
+    try:
+        from vllm import LLM, SamplingParams
+    except ImportError as e:
+        raise ImportError("vllm is required for --backend vllm.") from e
+    return LLM, SamplingParams, process_vision_info
+
+
+def _prepare_inputs_for_vllm(messages, processor, process_vision_info):
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    kwargs = {
+        "return_video_kwargs": True,
+        "return_video_metadata": True,
+    }
+    image_processor = getattr(processor, "image_processor", None)
+    patch_size = getattr(image_processor, "patch_size", None)
+    if patch_size is not None:
+        kwargs["image_patch_size"] = patch_size
+
+    image_inputs, video_inputs, video_kwargs = process_vision_info(messages, **kwargs)
+    mm_data = {}
+    if image_inputs is not None:
+        mm_data["image"] = image_inputs
+    if video_inputs is not None:
+        mm_data["video"] = video_inputs
+    return {
+        "prompt": text,
+        "multi_modal_data": mm_data,
+        "mm_processor_kwargs": video_kwargs or {},
+    }
+
+
+def _build_vllm_sampling_params(args, SamplingParams):
+    sample_flag = bool(args.do_sample and args.temperature > 0.0)
+    temperature = args.temperature if sample_flag else 0.0
+    top_p = args.top_p if sample_flag else 1.0
+    return SamplingParams(
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=args.max_new_tokens,
+        stop_token_ids=[],
+    )
+
+
+def _generate_batch_vllm(llm, processor, process_vision_info, batch_messages, sampling_params):
+    batch_inputs = [
+        _prepare_inputs_for_vllm(messages=m, processor=processor, process_vision_info=process_vision_info)
+        for m in batch_messages
+    ]
+    outputs = llm.generate(batch_inputs, sampling_params=sampling_params)
+    texts = []
+    for out in outputs:
+        if getattr(out, "outputs", None):
+            texts.append(out.outputs[0].text)
+        else:
+            texts.append("")
+    return texts
 
 
 def _write_sample_grouped_json(output_dir: Path, records_by_bucket: dict):
@@ -464,15 +538,45 @@ def main():
     if len(items) > 1 and args.output_file:
         raise ValueError("--output-file is only for single item. Use --output-dir for grouped outputs.")
 
-    torch_dtype = _resolve_torch_dtype(args.dtype)
-    model = AutoModelForImageTextToText.from_pretrained(
-        args.model_id,
-        torch_dtype=torch_dtype,
-        attn_implementation=args.attn_implementation,
-        device_map=args.device_map,
-        trust_remote_code=True,
-    )
-    processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+    model = None
+    llm = None
+    sampling_params = None
+    process_vision_info = None
+
+    if args.backend == "transformers":
+        torch_dtype = _resolve_torch_dtype(args.dtype)
+        model = AutoModelForImageTextToText.from_pretrained(
+            args.model_id,
+            torch_dtype=torch_dtype,
+            attn_implementation=args.attn_implementation,
+            device_map=args.device_map,
+            trust_remote_code=True,
+        )
+        processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+    elif args.backend == "vllm":
+        LLM, SamplingParams, process_vision_info = _import_vllm_deps()
+        processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+
+        tp_size = args.tensor_parallel_size
+        if tp_size is None:
+            tp_size = torch.cuda.device_count() if torch.cuda.is_available() else 1
+
+        llm_kwargs = {
+            "model": args.model_id,
+            "trust_remote_code": True,
+            "tensor_parallel_size": tp_size,
+            "gpu_memory_utilization": args.vllm_gpu_memory_utilization,
+            "enforce_eager": args.vllm_enforce_eager,
+            "limit_mm_per_prompt": {"image": args.vllm_max_images_per_prompt},
+            "seed": 0,
+        }
+        if args.vllm_max_model_len is not None:
+            llm_kwargs["max_model_len"] = args.vllm_max_model_len
+
+        llm = LLM(**llm_kwargs)
+        sampling_params = _build_vllm_sampling_params(args, SamplingParams)
+    else:
+        raise ValueError(f"Unsupported --backend: {args.backend}")
 
     jsonl_fp = None
     if args.output_jsonl:
@@ -497,7 +601,15 @@ def main():
                 for m in batch_messages:
                     print(m)
 
-            if len(batch_messages) == 1:
+            if args.backend == "vllm":
+                batch_outputs = _generate_batch_vllm(
+                    llm=llm,
+                    processor=processor,
+                    process_vision_info=process_vision_info,
+                    batch_messages=batch_messages,
+                    sampling_params=sampling_params,
+                )
+            elif len(batch_messages) == 1:
                 batch_outputs = [
                     _generate_one(
                         model=model,

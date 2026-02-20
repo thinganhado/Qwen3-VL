@@ -2,6 +2,6 @@ The artifact-bearing region is:
 Region ID: {ID}
 Temporal context: {time}
 Spectral band: {frequency}
-Phonetic target: {phonetic}
+Phonetic category: {phonetic}
 
 Provide your reasoning inside <think></think> and the final region ID inside <answer></answer>.
