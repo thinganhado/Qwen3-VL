@@ -51,7 +51,9 @@ OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-a
 OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_BASE_DIR}/selected_samples}"
 OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR}/qwen_region_outputs_selected.jsonl}"
 
-SAMPLE_IDS="${SAMPLE_IDS:-hifigan_LA_D_1469404;hn-sinc-nsf-hifi_LA_D_5621016;hn-sinc-nsf_LA_D_3205943;waveglow_LA_D_1469404}"
+SAMPLE_IDS_PRIMARY="${SAMPLE_IDS_PRIMARY:-hifigan_LA_D_1469404;hn-sinc-nsf-hifi_LA_D_5621016;hn-sinc-nsf_LA_D_3205943;waveglow_LA_D_1469404}"
+SAMPLE_IDS_EXTRA="${SAMPLE_IDS_EXTRA:-hifigan_LA_D_6503475;hifigan_LA_D_5495040;hifigan_LA_T_2397067}"
+SAMPLE_IDS="${SAMPLE_IDS:-${SAMPLE_IDS_PRIMARY};${SAMPLE_IDS_EXTRA}}"
 FILTERED_META_CSV="${FILTERED_META_CSV:-${OUTPUT_DIR}/region_phone_table_selected.csv}"
 
 mkdir -p "${OUTPUT_DIR}" "${OUTPUT_BASE_DIR}/logs"
@@ -70,7 +72,9 @@ NR == 1 { print; next }
 ' "${META_CSV}" > "${FILTERED_META_CSV}"
 
 echo "[run] MODEL_ID=${MODEL_ID}"
-echo "[run] SAMPLE_IDS=${SAMPLE_IDS}"
+echo "[run] SAMPLE_IDS_PRIMARY=${SAMPLE_IDS_PRIMARY}"
+echo "[run] SAMPLE_IDS_EXTRA=${SAMPLE_IDS_EXTRA}"
+echo "[run] SAMPLE_IDS(all)=${SAMPLE_IDS}"
 echo "[run] FILTERED_META_CSV=${FILTERED_META_CSV}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 
