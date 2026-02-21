@@ -12,7 +12,7 @@ Use these categories to guide your visual and acoustic analysis:
 - Audio impact: hollow sounding speech.
 
 3. Periodic texture
-- Visual cues: fine lines appear repeated at regular spacing.
+- Visual cues: Precise repetitions of low-frequency patterns in the high-frequency bands, appearing as duplicated parallel stripes.
 - Audio impact: robotic rhythm quality.
 
 4. Noise flattening
