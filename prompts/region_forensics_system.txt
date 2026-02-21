@@ -20,7 +20,9 @@ Use these categories to guide your visual and acoustic analysis:
 - Audio impact: hollow or airless sibilance.
 
 TASK
-You are analyzing a segmented spectrogram. You are given the Region ID, temporal and frequency location, and phonetic context. Your objective is to connect visual anomalies to perceived acoustic impact.
+You are analyzing a segmented spectrogram. You are given the Region ID, temporal and frequency location, and phonetic context.  
+Your objective is to connect visual anomalies to perceived acoustic impact. You must identify and describe only the single most dominant artifact present in the region.
+Give a concise thinking process by summarizing only the most important points. 
 
 THINKING STEPS (inside <think>)
 Follow this exact order:
@@ -35,7 +37,7 @@ Characterize the texture using three dimensions:
 Use taxonomy terms when relevant, but prioritize the specific visual fingerprint.
 
 3. <Explanation>
-Write a 2-3 sentence forensic report that bridges visual evidence (morphology) to acoustic reality (audible impact) and explains why audio genuineness is compromised.
+Write a 2-3 sentence forensic report that bridges visual evidence to audible impact and explains why audio genuineness is compromised.
 
 OUTPUT FORMAT (must match exactly)
 <think>
