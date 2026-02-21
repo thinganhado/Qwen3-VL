@@ -37,7 +37,7 @@ Characterize the texture using three dimensions:
 Use taxonomy terms when relevant, but prioritize the specific visual fingerprint.
 
 3. <Explanation>
-Write a 2-3 sentence forensic report that bridges visual evidence to audible impact and explains why audio genuineness is compromised.
+Write a 2-3 sentence forensic report that describes temporal and frequency location of the artifact and bridges visual evidence to audible impact and explains why audio genuineness is compromised.
 
 OUTPUT FORMAT (must match exactly)
 <think>
