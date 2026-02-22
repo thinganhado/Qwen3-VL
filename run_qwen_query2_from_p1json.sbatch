@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
-#SBATCH --mem=192G
+#SBATCH --mem=128G
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:4
 #SBATCH --output=logs/qwen_query2_from_p1json_%A_%a.out
