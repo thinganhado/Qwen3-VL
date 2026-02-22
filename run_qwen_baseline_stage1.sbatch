@@ -34,14 +34,15 @@ mkdir -p "${SCRIPT_DIR}/logs"
 cd "${SCRIPT_DIR}"
 
 MODEL_ID="${MODEL_ID:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-235B-A22B-Instruct/}"
+META_JSON="${META_JSON:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_val.json}"
 META_CSV="${META_CSV:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_gt.csv}"
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/baseline_prompts/baseline_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/baseline_prompts/baseline_user.txt}"
 OUTPUT_BASE_DIR="${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_strongVLM/}"
 SHARD_COUNT="${SHARD_COUNT:-1}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
-MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-200}"
-DTYPE="${DTYPE:-auto}"
+MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-768}"
+DTYPE="${DTYPE:-bfloat16}"
 OVERWRITE="${OVERWRITE:-0}"
 SAMPLE_ID_GLOB="${SAMPLE_ID_GLOB:-}"
 
@@ -61,6 +62,7 @@ echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
 echo "[run] MODEL_TAG=${MODEL_TAG}"
 echo "[run] RUN_TAG=${RUN_TAG}"
+echo "[run] META_JSON=${META_JSON}"
 echo "[run] META_CSV=${META_CSV}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
@@ -69,6 +71,7 @@ echo "[run] OVERWRITE=${OVERWRITE}"
 
 CMD=(python -u "${SCRIPT_DIR}/qwen_baseline_artifact_prompt.py" \
   --model-id "${MODEL_ID}" \
+  --meta-json "${META_JSON}" \
   --meta-csv "${META_CSV}" \
   --image-folder "${IMAGE_FOLDER:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid}" \
   --system-file "${SYSTEM_FILE}" \
