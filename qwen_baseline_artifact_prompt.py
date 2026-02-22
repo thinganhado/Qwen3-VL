@@ -263,13 +263,27 @@ def _load_model(args: argparse.Namespace, torch_dtype):
     )
 
 
-def _generate_one(model, processor, messages, max_new_tokens, do_sample, temperature, top_p):
+def _generate_one(
+    model,
+    processor,
+    messages,
+    max_new_tokens,
+    do_sample,
+    temperature,
+    top_p,
+    image_min_pixels,
+    image_max_pixels,
+):
     inputs = processor.apply_chat_template(
         messages,
         tokenize=True,
         add_generation_prompt=True,
         return_dict=True,
         return_tensors="pt",
+        images_kwargs={
+            "min_pixels": image_min_pixels,
+            "max_pixels": image_max_pixels,
+        },
     )
     inputs = inputs.to(model.device)
 
@@ -338,6 +352,8 @@ def parse_args():
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
     parser.add_argument("--dtype", default="auto", help="Model dtype: auto, float16, bfloat16, float32.")
     parser.add_argument("--max-new-tokens", type=int, default=200)
+    parser.add_argument("--image-min-pixels", type=int, default=100352)
+    parser.add_argument("--image-max-pixels", type=int, default=200704)
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling.")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-p", type=float, default=0.9)
@@ -410,6 +426,8 @@ def main():
                 do_sample=args.do_sample,
                 temperature=args.temperature,
                 top_p=args.top_p,
+                image_min_pixels=args.image_min_pixels,
+                image_max_pixels=args.image_max_pixels,
             )
 
             record = {
