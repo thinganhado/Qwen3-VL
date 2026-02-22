@@ -358,6 +358,10 @@ def main():
         trust_remote_code=True,
     )
     processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+    # Merged training checkpoints can carry do_resize=False in processor config.
+    # Force resize for inference to avoid invalid patch reshaping on odd image sizes.
+    if hasattr(processor, "image_processor") and hasattr(processor.image_processor, "do_resize"):
+        processor.image_processor.do_resize = True
 
     mode = "w" if args.overwrite else "a"
     with output_jsonl.open(mode, encoding="utf-8", buffering=1) as jsonl_fp:
