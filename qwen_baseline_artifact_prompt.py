@@ -7,7 +7,7 @@ from fnmatch import fnmatch
 from pathlib import Path
 
 import torch
-from transformers import AutoModelForImageTextToText, AutoProcessor
+from transformers import AutoConfig, AutoModelForImageTextToText, AutoProcessor
 
 
 THIS_DIR = Path(__file__).resolve().parent
@@ -226,6 +226,43 @@ def _resolve_torch_dtype(dtype_str: str):
     return mapping[dtype_str]
 
 
+def _load_model(args: argparse.Namespace, torch_dtype):
+    """
+    Load the correct VLM class explicitly for Qwen3 models.
+    Some envs route Qwen3 checkpoints through Qwen2_VL auto mapping, which causes
+    image token/feature alignment failures at generation time.
+    """
+    config = AutoConfig.from_pretrained(args.model_id, trust_remote_code=True)
+    model_type = getattr(config, "model_type", "")
+
+    if model_type == "qwen3_vl":
+        from transformers import Qwen3VLForConditionalGeneration
+
+        return Qwen3VLForConditionalGeneration.from_pretrained(
+            args.model_id,
+            torch_dtype=torch_dtype,
+            device_map=args.device_map,
+            trust_remote_code=True,
+        )
+
+    if model_type == "qwen3_vl_moe":
+        from transformers import Qwen3VLMoeForConditionalGeneration
+
+        return Qwen3VLMoeForConditionalGeneration.from_pretrained(
+            args.model_id,
+            torch_dtype=torch_dtype,
+            device_map=args.device_map,
+            trust_remote_code=True,
+        )
+
+    return AutoModelForImageTextToText.from_pretrained(
+        args.model_id,
+        dtype=torch_dtype,
+        device_map=args.device_map,
+        trust_remote_code=True,
+    )
+
+
 def _generate_one(model, processor, messages, max_new_tokens, do_sample, temperature, top_p):
     inputs = processor.apply_chat_template(
         messages,
@@ -351,12 +388,7 @@ def main():
     print(f"[image_folder] {args.image_folder}")
 
     torch_dtype = _resolve_torch_dtype(args.dtype)
-    model = AutoModelForImageTextToText.from_pretrained(
-        args.model_id,
-        dtype=torch_dtype,
-        device_map=args.device_map,
-        trust_remote_code=True,
-    )
+    model = _load_model(args, torch_dtype)
     processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
     # Merged training checkpoints can carry do_resize=False in processor config.
     # Force resize for inference to avoid invalid patch reshaping on odd image sizes.
