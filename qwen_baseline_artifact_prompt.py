@@ -75,8 +75,31 @@ def _extract_first_image_field(example: dict) -> str:
         return image
     if isinstance(image, list) and image:
         return str(image[0])
-    return ""
 
+    # Swift-style records: messages -> content items with image/image_url.
+    messages = example.get("messages", [])
+    if isinstance(messages, list):
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            content = msg.get("content")
+            if not isinstance(content, list):
+                continue
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                img = item.get("image")
+                if isinstance(img, str) and img.strip():
+                    return img.strip()
+                image_url = item.get("image_url")
+                if isinstance(image_url, str) and image_url.strip():
+                    return image_url.strip()
+                if isinstance(image_url, dict):
+                    url = image_url.get("url")
+                    if isinstance(url, str) and url.strip():
+                        return url.strip()
+
+    return ""
 
 def _extract_gt_regions_from_example(example: dict) -> str:
     # Prefer explicit regions field when present.
@@ -122,7 +145,7 @@ def _discover_items_from_json(args: argparse.Namespace):
         if img_path is None:
             continue
 
-        sample_id = str(ex.get("id", "")).strip() or img_path.stem
+        sample_id = str(ex.get("sample_id", "")).strip() or str(ex.get("id", "")).strip() or img_path.stem
         if args.sample_id_glob and not fnmatch(sample_id, args.sample_id_glob):
             continue
 
