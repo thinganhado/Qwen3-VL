@@ -49,6 +49,7 @@ USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics
 OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test}}"
 CACHE_BASE_DIR="/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test"
 FLASHINFER_WORKSPACE_DIR="/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/flashinfer"
+FLASHINFER_JIT_CACHE_DIR="${FLASHINFER_WORKSPACE_DIR}"
 XDG_CACHE_HOME="${CACHE_BASE_DIR}"
 VLLM_CONFIG_ROOT="${CACHE_BASE_DIR}/vllm"
 TRITON_CACHE_DIR="${CACHE_BASE_DIR}/triton"
@@ -91,7 +92,7 @@ VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
 
 mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${VLLM_CONFIG_ROOT}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
 mkdir -p "${OUTPUT_BASE_DIR}/logs"
-export FLASHINFER_WORKSPACE_DIR XDG_CACHE_HOME VLLM_CONFIG_ROOT TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
+export FLASHINFER_WORKSPACE_DIR FLASHINFER_JIT_CACHE_DIR XDG_CACHE_HOME VLLM_CONFIG_ROOT TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
@@ -106,6 +107,22 @@ echo "[run] DTYPE=${DTYPE} ATTN_IMPLEMENTATION=${ATTN_IMPLEMENTATION}"
 echo "[run] OVERWRITE=${OVERWRITE}"
 echo "[run] CACHE_BASE_DIR=${CACHE_BASE_DIR}"
 echo "[run] FLASHINFER_WORKSPACE_DIR=${FLASHINFER_WORKSPACE_DIR}"
+echo "[run] FLASHINFER_JIT_CACHE_DIR=${FLASHINFER_JIT_CACHE_DIR}"
+
+# Verify FlashInfer resolves workspace away from /home before launching vLLM.
+python - <<'PY'
+import os, sys
+try:
+    import flashinfer.jit.env as env
+except Exception as e:
+    print(f"[warn] flashinfer precheck import failed: {e}")
+    sys.exit(0)
+resolved = str(getattr(env, "FLASHINFER_WORKSPACE_DIR", ""))
+print(f"[run] flashinfer.resolved_workspace={resolved}")
+if resolved.startswith("/home/"):
+    print("[error] FlashInfer resolved workspace points to /home; will likely fail with quota.")
+    sys.exit(3)
+PY
 
 CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --backend "${BACKEND}" \
