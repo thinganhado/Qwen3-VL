@@ -48,7 +48,7 @@ SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
 OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test}}"
 CACHE_BASE_DIR="/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test"
-FLASHINFER_WORKSPACE_DIR="${CACHE_BASE_DIR}/flashinfer"
+FLASHINFER_WORKSPACE_DIR="/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/flashinfer"
 XDG_CACHE_HOME="${CACHE_BASE_DIR}"
 VLLM_CONFIG_ROOT="${CACHE_BASE_DIR}/vllm"
 TRITON_CACHE_DIR="${CACHE_BASE_DIR}/triton"
@@ -57,6 +57,20 @@ TORCH_HOME="${CACHE_BASE_DIR}/torch"
 TMPDIR="/tmp/${USER}/qv"
 SHARD_COUNT="${SHARD_COUNT:-1}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
+
+# Ensure flashinfer workspace exists before engine startup.
+mkdir -p "${FLASHINFER_WORKSPACE_DIR}"
+
+# Guard against quota-limited home paths for vLLM/FlashInfer caches.
+if [[ "${CACHE_BASE_DIR}" == /home/* || "${XDG_CACHE_HOME}" == /home/* || "${FLASHINFER_WORKSPACE_DIR}" == /home/* ]]; then
+  echo "[error] Cache path points to /home and may hit quota."
+  echo "[error] CACHE_BASE_DIR=${CACHE_BASE_DIR}"
+  echo "[error] XDG_CACHE_HOME=${XDG_CACHE_HOME}"
+  echo "[error] FLASHINFER_WORKSPACE_DIR=${FLASHINFER_WORKSPACE_DIR}"
+  echo "[error] Set cache paths to /datasets or /scratch and rerun."
+  exit 2
+fi
+
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
   OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_BASE_DIR}/shard_${SHARD_ID}_of_${SHARD_COUNT}}"
   OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_BASE_DIR}/qwen_region_outputs_shard_${SHARD_ID}_of_${SHARD_COUNT}.jsonl}"
