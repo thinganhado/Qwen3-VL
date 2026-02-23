@@ -3,13 +3,14 @@
 #SBATCH --partition=h24gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=96G
-#SBATCH --time=2:00:00
+#SBATCH --cpus-per-task=24
+#SBATCH --mem=196G
+#SBATCH --time=24:00:00
 #SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/logs/qwen_region_full_%A_%a.out
 #SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/logs/qwen_region_full_%A_%a.err
 #SBATCH --account=OD-237777
 #SBATCH --gres=gpu:4
+#SBATCH --exclusive 
 
 set -euo pipefail
 
