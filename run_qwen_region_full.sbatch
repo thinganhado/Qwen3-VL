@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=96G
 #SBATCH --time=2:00:00
-#SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final_En/logs/qwen_region_full_%A_%a.out
-#SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final_En/logs/qwen_region_full_%A_%a.err
+#SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/logs/qwen_region_full_%A_%a.out
+#SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/logs/qwen_region_full_%A_%a.err
 #SBATCH --account=OD-237777
 #SBATCH --gres=gpu:4
 
@@ -21,6 +21,7 @@ conda activate vllm
 export CUDA_LAUNCH_BLOCKING="${CUDA_LAUNCH_BLOCKING:-1}"
 export TRANSFORMERS_VERBOSITY="${TRANSFORMERS_VERBOSITY:-info}"
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+export VLLM_NO_USAGE_STATS="${VLLM_NO_USAGE_STATS:-1}"
 
 if [[ -n "${SCRIPT_DIR_OVERRIDE:-}" ]]; then
   SCRIPT_DIR="${SCRIPT_DIR_OVERRIDE}"
@@ -45,10 +46,11 @@ SPEC_ROOT="${SPEC_ROOT:-/datasets/work/dss-deepfake-audio/work/data/datasets/int
 MFA_JSON_ROOT="${MFA_JSON_ROOT:-/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/}"
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
-OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final_En}}"
+OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test}}"
 CACHE_BASE_DIR="${CACHE_BASE_DIR:-${OUTPUT_BASE_DIR}/cache}"
 FLASHINFER_WORKSPACE_DIR="${FLASHINFER_WORKSPACE_DIR:-${CACHE_BASE_DIR}/flashinfer}"
 XDG_CACHE_HOME="${XDG_CACHE_HOME:-${CACHE_BASE_DIR}}"
+VLLM_CONFIG_ROOT="${VLLM_CONFIG_ROOT:-${CACHE_BASE_DIR}/vllm}"
 TRITON_CACHE_DIR="${TRITON_CACHE_DIR:-${CACHE_BASE_DIR}/triton}"
 HF_HOME="${HF_HOME:-${CACHE_BASE_DIR}/huggingface}"
 TORCH_HOME="${TORCH_HOME:-${CACHE_BASE_DIR}/torch}"
@@ -73,9 +75,9 @@ VLLM_MAX_MODEL_LEN="${VLLM_MAX_MODEL_LEN:-1280}"
 VLLM_MAX_IMAGES_PER_PROMPT="${VLLM_MAX_IMAGES_PER_PROMPT:-1}"
 VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
 
-mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
+mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${VLLM_CONFIG_ROOT}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
 mkdir -p "${OUTPUT_BASE_DIR}/logs"
-export FLASHINFER_WORKSPACE_DIR XDG_CACHE_HOME TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
+export FLASHINFER_WORKSPACE_DIR XDG_CACHE_HOME VLLM_CONFIG_ROOT TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
