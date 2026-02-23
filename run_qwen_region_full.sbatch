@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=128G
 #SBATCH --time=24:00:00
-#SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/logs/qwen_region_full_%A_%a.out
-#SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/logs/qwen_region_full_%A_%a.err
+#SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En/logs/qwen_region_full_%A_%a.out
+#SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En/logs/qwen_region_full_%A_%a.err
 #SBATCH --account=OD-237777
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive 
@@ -47,7 +47,7 @@ SPEC_ROOT="${SPEC_ROOT:-/datasets/work/dss-deepfake-audio/work/data/datasets/int
 MFA_JSON_ROOT="${MFA_JSON_ROOT:-/scratch3/che489/Ha/interspeech/datasets/vocv4_mfa_aligned/}"
 SYSTEM_FILE="${SYSTEM_FILE:-${SCRIPT_DIR}/prompts/region_forensics_system.txt}"
 USER_TEMPLATE_FILE="${USER_TEMPLATE_FILE:-${SCRIPT_DIR}/prompts/region_forensics_user.txt}"
-OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test}}"
+OUTPUT_BASE_DIR="${OUTPUT_BASE:-${OUTPUT_BASE_DIR:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En}}"
 CACHE_BASE_DIR="/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test"
 FLASHINFER_WORKSPACE_DIR="/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/test/flashinfer"
 FLASHINFER_JIT_CACHE_DIR="${FLASHINFER_WORKSPACE_DIR}"
