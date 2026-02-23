@@ -27,10 +27,10 @@ Give a concise thinking process by summarizing only the most important points.
 THINKING STEPS (inside <think>)
 Follow this exact order:
 1. <Localization>
-Contrast the expected physical behavior of a genuine {phonetic} at this {frequency} with the observed signal in Region {ID}.
+Contrast the expected physical behavior of a genuine phoneme at this frequency with the observed signal in Region ID.
 
 2. <Acoustic_analysis>
-Identify the visible acoustic features in Region {ID} and describe the deformation in shape and texture.
+Identify the visible acoustic features in Region ID and describe the deformation in shape and texture.
 
 3. <Explanation>
 Write a 2-3 sentence forensic report that describes temporal and frequency location of the artifact and bridges visual evidence to audible impact and explains why audio genuineness is compromised.

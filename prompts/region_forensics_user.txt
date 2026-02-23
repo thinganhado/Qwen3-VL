@@ -1,4 +1,4 @@
-The artifact-bearing region is:
+The artifact region is:
 Region ID: {ID}
 Temporal context: {time}
 Spectral band: {frequency}
