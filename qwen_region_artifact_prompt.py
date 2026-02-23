@@ -240,7 +240,7 @@ def parse_args():
     )
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
-    parser.add_argument("--dtype", default="fp16", help="Model dtype, e.g., auto, fp16/float16, bf16/bfloat16.")
+    parser.add_argument("--dtype", default="auto", help="Model dtype, e.g., auto, fp16/float16, bf16/bfloat16.")
     parser.add_argument(
         "--attn-implementation",
         default="eager",
