@@ -5,6 +5,7 @@ import json
 import os
 from fnmatch import fnmatch
 from pathlib import Path
+from typing import Optional
 
 import torch
 from transformers import AutoConfig, AutoModelForImageTextToText, AutoProcessor
@@ -215,15 +216,92 @@ def _build_messages(args: argparse.Namespace, item: dict):
 
 
 def _resolve_torch_dtype(dtype_str: str):
+    dtype_key = _normalize_dtype_name(dtype_str)
     mapping = {
         "auto": "auto",
         "float16": torch.float16,
         "bfloat16": torch.bfloat16,
         "float32": torch.float32,
     }
-    if dtype_str not in mapping:
-        raise ValueError(f"Unsupported --dtype: {dtype_str}. Use one of: {list(mapping.keys())}")
-    return mapping[dtype_str]
+    if dtype_key not in mapping:
+        raise ValueError(f"Unsupported --dtype: {dtype_str}. Use one of: auto, fp16/float16, bf16/bfloat16, float32.")
+    return mapping[dtype_key]
+
+
+def _normalize_dtype_name(dtype_str: str) -> str:
+    key = str(dtype_str).strip().lower()
+    aliases = {
+        "fp16": "float16",
+        "half": "float16",
+        "bf16": "bfloat16",
+        "fp32": "float32",
+    }
+    return aliases.get(key, key)
+
+
+def _import_vllm_deps():
+    try:
+        from qwen_vl_utils import process_vision_info
+    except ImportError as e:
+        raise ImportError("qwen_vl_utils is required for --backend vllm. Install qwen_vl_utils>=0.0.14.") from e
+    try:
+        from vllm import LLM, SamplingParams
+    except ImportError as e:
+        raise ImportError("vllm is required for --backend vllm.") from e
+    return LLM, SamplingParams, process_vision_info
+
+
+def _prepare_inputs_for_vllm(messages, processor, process_vision_info):
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    kwargs = {
+        "return_video_kwargs": True,
+        "return_video_metadata": True,
+    }
+    image_processor = getattr(processor, "image_processor", None)
+    patch_size = getattr(image_processor, "patch_size", None)
+    if patch_size is not None:
+        kwargs["image_patch_size"] = patch_size
+
+    image_inputs, video_inputs, video_kwargs = process_vision_info(messages, **kwargs)
+    mm_data = {}
+    if image_inputs is not None:
+        mm_data["image"] = image_inputs
+    if video_inputs is not None:
+        mm_data["video"] = video_inputs
+    return {
+        "prompt": text,
+        "multi_modal_data": mm_data,
+        "mm_processor_kwargs": video_kwargs or {},
+    }
+
+
+def _build_vllm_sampling_params(args, SamplingParams):
+    sample_flag = bool(args.do_sample and args.temperature > 0.0)
+    temperature = args.temperature if sample_flag else 0.0
+    top_p = args.top_p if sample_flag else 1.0
+    return SamplingParams(
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=args.max_new_tokens,
+        stop_token_ids=[],
+    )
+
+
+def _generate_one_vllm(llm, processor, process_vision_info, messages, sampling_params):
+    model_input = _prepare_inputs_for_vllm(messages=messages, processor=processor, process_vision_info=process_vision_info)
+    outputs = llm.generate([model_input], sampling_params=sampling_params)
+    if outputs and getattr(outputs[0], "outputs", None):
+        return outputs[0].outputs[0].text
+    return ""
+
+
+def _infer_tp_size_from_env() -> int:
+    cvd = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+    if cvd:
+        parts = [p.strip() for p in cvd.split(",") if p.strip()]
+        if parts:
+            return len(parts)
+    return 1
 
 
 def _load_model(args: argparse.Namespace, torch_dtype):
@@ -350,6 +428,12 @@ def parse_args():
     parser.add_argument("--shard-id", type=int, default=0, help="Shard index in [0, num_shards).")
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
+    parser.add_argument(
+        "--backend",
+        default="vllm",
+        choices=["transformers", "vllm"],
+        help="Inference backend. Defaults to vllm for large models.",
+    )
     parser.add_argument("--dtype", default="auto", help="Model dtype: auto, float16, bfloat16, float32.")
     parser.add_argument("--max-new-tokens", type=int, default=200)
     parser.add_argument("--image-min-pixels", type=int, default=100352)
@@ -357,6 +441,11 @@ def parse_args():
     parser.add_argument("--do-sample", action="store_true", help="Enable sampling.")
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-p", type=float, default=0.9)
+    parser.add_argument("--tensor-parallel-size", type=int, default=None, help="vLLM tensor parallel size. Default: GPU count.")
+    parser.add_argument("--vllm-gpu-memory-utilization", type=float, default=0.9, help="vLLM GPU memory utilization fraction.")
+    parser.add_argument("--vllm-enforce-eager", action="store_true", help="Enable vLLM eager mode.")
+    parser.add_argument("--vllm-max-model-len", type=int, default=None, help="Optional vLLM max model length.")
+    parser.add_argument("--vllm-max-images-per-prompt", type=int, default=1, help="vLLM multimodal image limit per prompt.")
 
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Output root directory.")
     parser.add_argument("--output-jsonl", default=None, help="Optional flat output jsonl path.")
@@ -403,13 +492,47 @@ def main():
     print(f"[items] {len(items)}")
     print(f"[image_folder] {args.image_folder}")
 
-    torch_dtype = _resolve_torch_dtype(args.dtype)
-    model = _load_model(args, torch_dtype)
-    processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
-    # Merged training checkpoints can carry do_resize=False in processor config.
-    # Force resize for inference to avoid invalid patch reshaping on odd image sizes.
-    if hasattr(processor, "image_processor") and hasattr(processor.image_processor, "do_resize"):
-        processor.image_processor.do_resize = True
+    model = None
+    llm = None
+    sampling_params = None
+    process_vision_info = None
+
+    if args.backend == "transformers":
+        torch_dtype = _resolve_torch_dtype(args.dtype)
+        model = _load_model(args, torch_dtype)
+        processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+        # Merged training checkpoints can carry do_resize=False in processor config.
+        # Force resize for inference to avoid invalid patch reshaping on odd image sizes.
+        if hasattr(processor, "image_processor") and hasattr(processor.image_processor, "do_resize"):
+            processor.image_processor.do_resize = True
+    elif args.backend == "vllm":
+        os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
+        LLM, SamplingParams, process_vision_info = _import_vllm_deps()
+        processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=True)
+        if hasattr(processor, "image_processor") and hasattr(processor.image_processor, "do_resize"):
+            processor.image_processor.do_resize = True
+
+        tp_size = args.tensor_parallel_size
+        if tp_size is None:
+            tp_size = _infer_tp_size_from_env()
+
+        llm_kwargs = {
+            "model": args.model_id,
+            "trust_remote_code": True,
+            "tensor_parallel_size": tp_size,
+            "dtype": _normalize_dtype_name(args.dtype),
+            "gpu_memory_utilization": args.vllm_gpu_memory_utilization,
+            "enforce_eager": args.vllm_enforce_eager,
+            "limit_mm_per_prompt": {"image": args.vllm_max_images_per_prompt},
+            "seed": 0,
+        }
+        if args.vllm_max_model_len is not None:
+            llm_kwargs["max_model_len"] = args.vllm_max_model_len
+
+        llm = LLM(**llm_kwargs)
+        sampling_params = _build_vllm_sampling_params(args, SamplingParams)
+    else:
+        raise ValueError(f"Unsupported --backend: {args.backend}")
 
     mode = "w" if args.overwrite else "a"
     with output_jsonl.open(mode, encoding="utf-8", buffering=1) as jsonl_fp:
@@ -418,17 +541,26 @@ def main():
             if args.print_messages:
                 print(messages)
 
-            output_text = _generate_one(
-                model=model,
-                processor=processor,
-                messages=messages,
-                max_new_tokens=args.max_new_tokens,
-                do_sample=args.do_sample,
-                temperature=args.temperature,
-                top_p=args.top_p,
-                image_min_pixels=args.image_min_pixels,
-                image_max_pixels=args.image_max_pixels,
-            )
+            if args.backend == "vllm":
+                output_text = _generate_one_vllm(
+                    llm=llm,
+                    processor=processor,
+                    process_vision_info=process_vision_info,
+                    messages=messages,
+                    sampling_params=sampling_params,
+                )
+            else:
+                output_text = _generate_one(
+                    model=model,
+                    processor=processor,
+                    messages=messages,
+                    max_new_tokens=args.max_new_tokens,
+                    do_sample=args.do_sample,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                    image_min_pixels=args.image_min_pixels,
+                    image_max_pixels=args.image_max_pixels,
+                )
 
             record = {
                 "sample_id": item["sample_id"],
