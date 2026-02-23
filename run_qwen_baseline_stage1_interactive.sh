@@ -63,6 +63,7 @@ RUN_OUTPUT_ROOT="${OUTPUT_BASE_DIR%/}/${MODEL_TAG}/${RUN_TAG}"
 
 mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${VLLM_CONFIG_ROOT}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
 mkdir -p "${OUTPUT_BASE_DIR%/}/logs"
+mkdir -p "${RUN_OUTPUT_ROOT}"
 
 export FLASHINFER_WORKSPACE_BASE FLASHINFER_WORKSPACE_DIR FLASHINFER_JIT_CACHE_DIR
 export XDG_CACHE_HOME VLLM_CONFIG_ROOT TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
@@ -99,6 +100,7 @@ for ((i=0; i<SHARD_COUNT; i++)); do
   out_dir="${RUN_OUTPUT_ROOT}/shard_${i}_of_${SHARD_COUNT}"
   out_jsonl="${RUN_OUTPUT_ROOT}/qwen_baseline_outputs_shard_${i}.jsonl"
   log_file="logs/baseline_${MODEL_TAG}_shard_${i}_${RUN_TAG}.log"
+  mkdir -p "${out_dir}" "$(dirname "${out_jsonl}")"
 
   cmd=(python -u "${SCRIPT_DIR}/qwen_baseline_artifact_prompt.py"
     --backend "${BACKEND}"
