@@ -215,9 +215,9 @@ def parse_args():
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID, help="HF model id or local model path.")
     parser.add_argument(
         "--backend",
-        default="transformers",
+        default="vllm",
         choices=["transformers", "vllm"],
-        help="Inference backend. Use vllm for FP8 checkpoints.",
+        help="Inference backend. Defaults to vllm for large/FP8 checkpoints.",
     )
 
     parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="CSV path with sample_id and region_id entries.")
@@ -240,7 +240,7 @@ def parse_args():
     )
 
     parser.add_argument("--device-map", default="auto", help="Transformers device_map.")
-    parser.add_argument("--dtype", default="auto", help="Model dtype, e.g., auto, float16, bfloat16.")
+    parser.add_argument("--dtype", default="fp16", help="Model dtype, e.g., auto, fp16/float16, bf16/bfloat16.")
     parser.add_argument(
         "--attn-implementation",
         default="eager",
@@ -266,16 +266,28 @@ def parse_args():
     return parser.parse_args()
 
 
+def _normalize_dtype_name(dtype_str: str) -> str:
+    key = str(dtype_str).strip().lower()
+    aliases = {
+        "fp16": "float16",
+        "half": "float16",
+        "bf16": "bfloat16",
+        "fp32": "float32",
+    }
+    return aliases.get(key, key)
+
+
 def _resolve_torch_dtype(dtype_str: str):
+    dtype_key = _normalize_dtype_name(dtype_str)
     mapping = {
         "auto": "auto",
         "float16": torch.float16,
         "bfloat16": torch.bfloat16,
         "float32": torch.float32,
     }
-    if dtype_str not in mapping:
-        raise ValueError(f"Unsupported --dtype: {dtype_str}. Use one of: {list(mapping.keys())}")
-    return mapping[dtype_str]
+    if dtype_key not in mapping:
+        raise ValueError(f"Unsupported --dtype: {dtype_str}. Use one of: auto, fp16/float16, bf16/bfloat16, float32.")
+    return mapping[dtype_key]
 
 
 def _generate_one(model, processor, messages, max_new_tokens, do_sample, temperature, top_p):
@@ -576,6 +588,7 @@ def main():
             "model": args.model_id,
             "trust_remote_code": True,
             "tensor_parallel_size": tp_size,
+            "dtype": _normalize_dtype_name(args.dtype),
             "gpu_memory_utilization": args.vllm_gpu_memory_utilization,
             "enforce_eager": args.vllm_enforce_eager,
             "limit_mm_per_prompt": {"image": args.vllm_max_images_per_prompt},
