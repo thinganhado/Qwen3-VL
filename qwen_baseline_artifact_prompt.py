@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import csv
 import json
 import os
 from fnmatch import fnmatch
@@ -15,8 +14,7 @@ THIS_DIR = Path(__file__).resolve().parent
 DEFAULT_SYSTEM_FILE = THIS_DIR / "baseline_prompts" / "baseline_system.txt"
 DEFAULT_USER_TEMPLATE_FILE = THIS_DIR / "baseline_prompts" / "baseline_user.txt"
 
-DEFAULT_META_CSV = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_gt.csv"
-DEFAULT_META_JSON = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/baseline_SFT/stage1_val.json"
+DEFAULT_META_JSON = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final_run/data/stage1_query1_val_swift.json"
 DEFAULT_IMAGE_FOLDER = "/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid"
 
 DEFAULT_MODEL_PATHS = {
@@ -147,54 +145,9 @@ def _discover_items_from_json(args: argparse.Namespace):
     return sorted(items, key=lambda x: x["sample_id"])
 
 
-def _discover_items_from_csv(args: argparse.Namespace):
-    meta_csv = Path(args.meta_csv).expanduser().resolve()
-    if not meta_csv.exists():
-        raise FileNotFoundError(f"--meta-csv does not exist: {meta_csv}")
-
-    items = []
-    with meta_csv.open("r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            img_path_raw = str(row.get("img_path", "")).strip()
-            if not img_path_raw:
-                continue
-            img_path = _resolve_image_path(img_path_raw, args.image_folder)
-            if img_path is None:
-                continue
-
-            sample_id = img_path.stem
-            if args.sample_id_glob and not fnmatch(sample_id, args.sample_id_glob):
-                continue
-            gt_regions = str(row.get("regions", "")).strip()
-            items.append(
-                {
-                    "sample_id": sample_id,
-                    "img_path": str(img_path),
-                    "gt_regions": gt_regions,
-                    "source": f"csv:{meta_csv.name}",
-                }
-            )
-
-    if args.max_items is not None:
-        items = items[: args.max_items]
-
-    if not items:
-        raise ValueError("No valid items discovered from --meta-csv.")
-
-    return sorted(items, key=lambda x: x["sample_id"])
-
 
 def _discover_items(args: argparse.Namespace):
-    if args.meta_json:
-        meta_json = Path(args.meta_json).expanduser().resolve()
-        if meta_json.exists():
-            return _discover_items_from_json(args)
-        if args.require_meta_json:
-            raise FileNotFoundError(f"--meta-json does not exist: {meta_json}")
-        print(f"[warn] --meta-json not found, falling back to --meta-csv: {meta_json}")
-
-    return _discover_items_from_csv(args)
+    return _discover_items_from_json(args)
 
 
 def _build_messages(args: argparse.Namespace, item: dict):
@@ -397,7 +350,7 @@ def _load_existing_sample_ids(output_jsonl: Path) -> set:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run baseline Qwen-VL prompt on test split (JSON or CSV).")
+    parser = argparse.ArgumentParser(description="Run baseline Qwen-VL prompt on JSON split.")
     parser.add_argument(
         "--model-key",
         choices=sorted(DEFAULT_MODEL_PATHS.keys()),
@@ -408,11 +361,10 @@ def parse_args():
 
     parser.add_argument("--meta-json", default=DEFAULT_META_JSON, help="JSON path for test split (preferred).")
     parser.add_argument("--require-meta-json", action="store_true", help="Fail if --meta-json is missing.")
-    parser.add_argument("--meta-csv", default=DEFAULT_META_CSV, help="Fallback CSV path containing img_path and regions columns.")
     parser.add_argument(
         "--image-folder",
         default=DEFAULT_IMAGE_FOLDER,
-        help="Base folder for resolving relative image paths from --meta-json/--meta-csv.",
+        help="Base folder for resolving relative image paths from --meta-json.",
     )
     parser.add_argument(
         "--sample-id-glob",
