@@ -60,6 +60,9 @@ TORCH_HOME="${CACHE_BASE_DIR}/torch"
 TMPDIR="/tmp/${USER}/qv"
 SHARD_COUNT="${SHARD_COUNT:-1}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
+_model_basename="$(basename "${MODEL_ID%/}")"
+MODEL_TAG="${MODEL_TAG:-$(echo "${_model_basename}" | tr -cs 'A-Za-z0-9._-' '_')}"
+MODEL_OUTPUT_BASE="${OUTPUT_BASE_DIR%/}/${MODEL_TAG}"
 
 # Ensure flashinfer workspace exists before engine startup.
 mkdir -p "${FLASHINFER_WORKSPACE_DIR}"
@@ -75,10 +78,10 @@ if [[ "${CACHE_BASE_DIR}" == /home/* || "${XDG_CACHE_HOME}" == /home/* || "${FLA
 fi
 
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
-  OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_BASE_DIR}/shard_${SHARD_ID}_of_${SHARD_COUNT}}"
-  OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_BASE_DIR}/qwen_region_outputs_shard_${SHARD_ID}_of_${SHARD_COUNT}.jsonl}"
+  OUTPUT_DIR="${OUTPUT_DIR:-${MODEL_OUTPUT_BASE}/shard_${SHARD_ID}_of_${SHARD_COUNT}}"
+  OUTPUT_JSONL="${OUTPUT_JSONL:-${MODEL_OUTPUT_BASE}/qwen_region_outputs_shard_${SHARD_ID}_of_${SHARD_COUNT}.jsonl}"
 else
-  OUTPUT_DIR="${OUTPUT_DIR:-${OUTPUT_BASE_DIR}}"
+  OUTPUT_DIR="${OUTPUT_DIR:-${MODEL_OUTPUT_BASE}}"
   OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR}/qwen_region_outputs.jsonl}"
 fi
 MAX_NEW_TOKENS="320"
@@ -93,12 +96,13 @@ VLLM_MAX_IMAGES_PER_PROMPT="${VLLM_MAX_IMAGES_PER_PROMPT:-1}"
 VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
 
 mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${VLLM_CONFIG_ROOT}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
-mkdir -p "${OUTPUT_BASE_DIR}/logs"
+mkdir -p "${OUTPUT_BASE_DIR}/logs" "${MODEL_OUTPUT_BASE}"
 export FLASHINFER_WORKSPACE_BASE FLASHINFER_WORKSPACE_DIR FLASHINFER_JIT_CACHE_DIR XDG_CACHE_HOME VLLM_CONFIG_ROOT TRITON_CACHE_DIR HF_HOME TORCH_HOME TMPDIR
 
 echo "[run] SCRIPT_DIR=${SCRIPT_DIR}"
 echo "[run] MODEL_ID=${MODEL_ID}"
 echo "[run] BACKEND=${BACKEND}"
+echo "[run] MODEL_TAG=${MODEL_TAG}"
 echo "[run] META_CSV=${META_CSV}"
 echo "[run] SPEC_ROOT=${SPEC_ROOT}"
 echo "[run] MFA_JSON_ROOT=${MFA_JSON_ROOT}"
