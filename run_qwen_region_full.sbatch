@@ -8,7 +8,7 @@
 #SBATCH --time=24:00:00
 #SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En/logs/qwen_region_full_%A_%a.out
 #SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En/logs/qwen_region_full_%A_%a.err
-#SBATCH --account=OD-237777
+#SBATCH --account=OD-235295
 #SBATCH --gres=gpu:4
 #SBATCH --exclusive 
 
@@ -58,7 +58,7 @@ TRITON_CACHE_DIR="${CACHE_BASE_DIR}/triton"
 HF_HOME="${CACHE_BASE_DIR}/huggingface"
 TORCH_HOME="${CACHE_BASE_DIR}/torch"
 TMPDIR="/tmp/${USER}/qv"
-SHARD_COUNT="${SHARD_COUNT:-1}"
+SHARD_COUNT="${SHARD_COUNT:-4}"
 SHARD_ID="${SHARD_ID:-${SLURM_ARRAY_TASK_ID:-0}}"
 _model_basename="$(basename "${MODEL_ID%/}")"
 MODEL_TAG="${MODEL_TAG:-$(echo "${_model_basename}" | tr -cs 'A-Za-z0-9._-' '_')}"
@@ -87,10 +87,10 @@ fi
 MAX_NEW_TOKENS="320"
 DTYPE="${DTYPE:-auto}"
 ATTN_IMPLEMENTATION="${ATTN_IMPLEMENTATION:-flash_attention_2}"
-BATCH_SIZE="${BATCH_SIZE:-1}"
+BATCH_SIZE="${BATCH_SIZE:-8}"
 OVERWRITE="${OVERWRITE:-0}"
-TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-}"
-VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.9}"
+TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-1}"
+VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.92}"
 VLLM_MAX_MODEL_LEN="768"
 VLLM_MAX_IMAGES_PER_PROMPT="${VLLM_MAX_IMAGES_PER_PROMPT:-1}"
 VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
