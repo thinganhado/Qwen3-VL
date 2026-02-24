@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=128G
 #SBATCH --time=24:00:00
+#SBATCH --array=0-3
 #SBATCH --output=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En/logs/qwen_region_full_%A_%a.out
 #SBATCH --error=/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/final__En/logs/qwen_region_full_%A_%a.err
 #SBATCH --account=OD-235295
