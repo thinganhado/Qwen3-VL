@@ -1,1 +1,1 @@
-Select the top 3 regions that most likely contain spoof artifacts.
+Select the top 3 regions that most likely contain spoof artifacts, ordered from most to least prominent spoof artifact evidence.
