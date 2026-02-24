@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import csv
+import glob
 import json
 import os
 from collections import defaultdict
@@ -261,6 +262,11 @@ def parse_args():
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR, help="Per-sample output root.")
     parser.add_argument("--output-file", default=None, help="Single-item output file.")
     parser.add_argument("--output-jsonl", default=None, help="Optional flat batch output jsonl file.")
+    parser.add_argument(
+        "--existing-jsonl-glob",
+        default=None,
+        help="Optional glob for existing JSONL outputs to use for resume skipping (e.g., all shard JSONLs).",
+    )
     parser.add_argument("--overwrite", action="store_true", default=False, help="Regenerate outputs even if existing records exist.")
     parser.add_argument("--print-messages", action="store_true", help="Print built messages before generation.")
     return parser.parse_args()
@@ -498,6 +504,31 @@ def _load_existing_records_from_jsonl(jsonl_path: Path) -> dict:
     return records_by_bucket
 
 
+def _load_existing_records_from_jsonl_glob(jsonl_glob: str) -> dict:
+    merged = defaultdict(list)
+    if not jsonl_glob:
+        return merged
+
+    matched = sorted(set(glob.glob(jsonl_glob)))
+    for m in matched:
+        p = Path(m).expanduser().resolve()
+        if not p.exists() or not p.is_file():
+            continue
+        recs = _load_existing_records_from_jsonl(p)
+        _merge_records_by_bucket(merged, recs)
+    return merged
+
+
+def _derive_existing_jsonl_glob(args: argparse.Namespace, output_root: Path) -> str:
+    if args.existing_jsonl_glob:
+        return str(args.existing_jsonl_glob)
+    if args.output_jsonl:
+        base = Path(args.output_jsonl).expanduser().resolve().parent
+        return str(base / "qwen_region_outputs*.jsonl")
+    # When only output_dir is provided, assume model root contains shard jsonls.
+    return str(output_root.parent / "qwen_region_outputs*.jsonl")
+
+
 def _merge_records_by_bucket(dst: dict, src: dict) -> None:
     seen = _existing_done_keys(dst)
     for (method, sample_id), records in src.items():
@@ -524,9 +555,11 @@ def main():
     args = parse_args()
     items = _discover_items(args)
     output_root = Path(args.output_dir).expanduser().resolve()
+    existing_jsonl_glob = _derive_existing_jsonl_glob(args, output_root)
 
     existing_records = defaultdict(list)
     existing_jsonl_records = defaultdict(list)
+    existing_glob_records = defaultdict(list)
     if not args.overwrite:
         existing_records = _load_existing_records_by_sample(output_root)
         done_keys = _existing_done_keys(existing_records)
@@ -534,6 +567,9 @@ def main():
             jsonl_path = Path(args.output_jsonl).expanduser().resolve()
             existing_jsonl_records = _load_existing_records_from_jsonl(jsonl_path)
             done_keys.update(_existing_done_keys(existing_jsonl_records))
+        if existing_jsonl_glob:
+            existing_glob_records = _load_existing_records_from_jsonl_glob(existing_jsonl_glob)
+            done_keys.update(_existing_done_keys(existing_glob_records))
         before = len(items)
         items = [it for it in items if (str(it["sample_id"]), int(it["region_id"]), str(it.get("crop_method", "GRID")).upper()) not in done_keys]
         skipped = before - len(items)
@@ -613,6 +649,7 @@ def main():
     if not args.overwrite:
         _merge_records_by_bucket(records_by_bucket, existing_records)
         _merge_records_by_bucket(records_by_bucket, existing_jsonl_records)
+        _merge_records_by_bucket(records_by_bucket, existing_glob_records)
 
     try:
         for batch_start in range(0, len(items), args.batch_size):

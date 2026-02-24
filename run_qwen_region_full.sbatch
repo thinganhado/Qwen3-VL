@@ -81,9 +81,11 @@ fi
 if [[ "${SHARD_COUNT}" -gt 1 ]]; then
   OUTPUT_DIR="${OUTPUT_DIR:-${MODEL_OUTPUT_BASE}/shard_${SHARD_ID}_of_${SHARD_COUNT}}"
   OUTPUT_JSONL="${OUTPUT_JSONL:-${MODEL_OUTPUT_BASE}/qwen_region_outputs_shard_${SHARD_ID}_of_${SHARD_COUNT}.jsonl}"
+  EXISTING_JSONL_GLOB="${EXISTING_JSONL_GLOB:-${MODEL_OUTPUT_BASE}/qwen_region_outputs_shard_*_of_${SHARD_COUNT}.jsonl}"
 else
   OUTPUT_DIR="${OUTPUT_DIR:-${MODEL_OUTPUT_BASE}}"
   OUTPUT_JSONL="${OUTPUT_JSONL:-${OUTPUT_DIR}/qwen_region_outputs.jsonl}"
+  EXISTING_JSONL_GLOB="${EXISTING_JSONL_GLOB:-${MODEL_OUTPUT_BASE}/qwen_region_outputs*.jsonl}"
 fi
 MAX_NEW_TOKENS="320"
 DTYPE="${DTYPE:-auto}"
@@ -109,6 +111,7 @@ echo "[run] SPEC_ROOT=${SPEC_ROOT}"
 echo "[run] MFA_JSON_ROOT=${MFA_JSON_ROOT}"
 echo "[run] OUTPUT_DIR=${OUTPUT_DIR}"
 echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
+echo "[run] EXISTING_JSONL_GLOB=${EXISTING_JSONL_GLOB}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
 echo "[run] DTYPE=${DTYPE} ATTN_IMPLEMENTATION=${ATTN_IMPLEMENTATION}"
 echo "[run] OVERWRITE=${OVERWRITE}"
@@ -147,7 +150,8 @@ CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --num-shards "${SHARD_COUNT}" \
   --shard-id "${SHARD_ID}" \
   --output-dir "${OUTPUT_DIR}" \
-  --output-jsonl "${OUTPUT_JSONL}")
+  --output-jsonl "${OUTPUT_JSONL}" \
+  --existing-jsonl-glob "${EXISTING_JSONL_GLOB}")
 
 if [[ -n "${TENSOR_PARALLEL_SIZE}" ]]; then
   CMD+=(--tensor-parallel-size "${TENSOR_PARALLEL_SIZE}")
