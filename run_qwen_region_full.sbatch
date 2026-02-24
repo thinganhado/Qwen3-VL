@@ -40,7 +40,7 @@ mkdir -p "${SCRIPT_DIR}/logs"
 cd "${SCRIPT_DIR}"
 
 # Defaults mirror qwen_region_artifact_prompt.py; override via env vars if needed.
-MODEL_ID="${MODEL_ID:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-8B-Thinking/}"
+MODEL_ID="${MODEL_ID:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/VLM/Qwen3-VL-30B-A3B-Thinking/}"
 BACKEND="${BACKEND:-vllm}"
 META_CSV="${META_CSV:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/final_mask_topk/region_phone_table_topk3.csv}"
 SPEC_ROOT="${SPEC_ROOT:-/datasets/work/dss-deepfake-audio/work/data/datasets/interspeech/img/specs/grid/}"
