@@ -97,6 +97,9 @@ VLLM_GPU_MEMORY_UTILIZATION="${VLLM_GPU_MEMORY_UTILIZATION:-0.92}"
 VLLM_MAX_MODEL_LEN="2048"
 VLLM_MAX_IMAGES_PER_PROMPT="${VLLM_MAX_IMAGES_PER_PROMPT:-1}"
 VLLM_ENFORCE_EAGER="${VLLM_ENFORCE_EAGER:-0}"
+# Hardcoded sampling settings for reruns.
+TEMPERATURE="1.15"
+TOP_P="0.95"
 
 mkdir -p "${FLASHINFER_WORKSPACE_DIR}" "${VLLM_CONFIG_ROOT}" "${TRITON_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}" "${TMPDIR}"
 mkdir -p "${OUTPUT_BASE_DIR}/logs" "${MODEL_OUTPUT_BASE}"
@@ -114,6 +117,7 @@ echo "[run] SHARD_ID=${SHARD_ID} SHARD_COUNT=${SHARD_COUNT}"
 echo "[run] EXISTING_JSONL_GLOB=${EXISTING_JSONL_GLOB}"
 echo "[run] BATCH_SIZE=${BATCH_SIZE}"
 echo "[run] DTYPE=${DTYPE} ATTN_IMPLEMENTATION=${ATTN_IMPLEMENTATION}"
+echo "[run] DO_SAMPLE=1 TEMPERATURE=${TEMPERATURE} TOP_P=${TOP_P}"
 echo "[run] OVERWRITE=${OVERWRITE}"
 echo "[run] CACHE_BASE_DIR=${CACHE_BASE_DIR}"
 echo "[run] FLASHINFER_WORKSPACE_BASE=${FLASHINFER_WORKSPACE_BASE}"
@@ -146,6 +150,9 @@ CMD=(python -u "${SCRIPT_DIR}/qwen_region_artifact_prompt.py" \
   --dtype "${DTYPE}" \
   --attn-implementation "${ATTN_IMPLEMENTATION}" \
   --max-new-tokens "${MAX_NEW_TOKENS}" \
+  --do-sample \
+  --temperature "${TEMPERATURE}" \
+  --top-p "${TOP_P}" \
   --batch-size "${BATCH_SIZE}" \
   --num-shards "${SHARD_COUNT}" \
   --shard-id "${SHARD_ID}" \
