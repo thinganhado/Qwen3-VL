@@ -1,1 +1,1 @@
-Explain the spoof artifact in each region ID in {prompt1_output} . This is the transcript for context: {transcript}
+Explain the spoof artifact for each of the three selected region IDs in {prompt1_output} . This is the transcript for context: {transcript}
